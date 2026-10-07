@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mail_informer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD in .env setzen}
+      POSTGRES_DB: mail_informer
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail_informer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  poller:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mail_informer:${POSTGRES_PASSWORD}@postgres:5432/mail_informer
+      TOKEN_PATH: /secrets/token.json
+    volumes:
+      - ./secrets:/secrets
+
+volumes:
+  pgdata:
