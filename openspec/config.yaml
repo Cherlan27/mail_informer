@@ -31,6 +31,9 @@ context: |
   - Comments explain why, not what.
   - Type hints on all function signatures.
   - Commits: conventional commits (feat:, fix:, test:, docs:, chore:, refactor:).
+  - Branches: one branch per change, created from main. Name it <type>/<change-name>,
+    where type is feat, fix, or chore and change-name is the OpenSpec change name
+    (for example feat/gmail-poller). Never commit directly to main.
   - Dependencies: pinned in constraints.txt. Add a new dependency only with a reason.
   - Config comes from environment variables (12-factor). Fail early if a required
     value is missing.
@@ -63,6 +66,9 @@ rules:
 operations:
   apply:
     guidance:
+      - Before the first edit, create the branch <type>/<change-name> from an up-to-date
+        main (feat for new behavior, fix for bug fixes, chore for everything else such
+        as tooling, docs, or dependencies). Reuse it if it already exists.
       - Work test-first. Write one failing test, run it, and confirm it fails for the
         right reason before writing any implementation (red).
       - Write the smallest code that makes the test pass (green). Run the tests again.
@@ -76,5 +82,6 @@ operations:
   archive:
     guidance:
       - Check that all tasks are done and the test suite is green before archiving.
+      - Make sure all work is committed on the change branch, ready to merge into main.
       - Sync delta specs into the main specs.
       - Summarize the outcome in a few plain sentences.
