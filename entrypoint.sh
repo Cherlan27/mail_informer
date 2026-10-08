@@ -1,4 +1,4 @@
 #!/bin/sh
-# Einmal sofort laufen (holt nach Neustart/Ruhezustand direkt nach), dann alle 30 Minuten.
-python -m mail_informer run || echo "Erster Lauf fehlgeschlagen, Scheduler startet trotzdem"
+# Run once right away (catches up after a restart or sleep), then every 30 minutes.
+python -m mail_informer run || echo "First run failed, starting the scheduler anyway"
 exec /usr/local/bin/supercronic /app/crontab

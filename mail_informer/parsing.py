@@ -8,6 +8,8 @@ import html2text
 
 @dataclass(frozen=True)
 class Mail:
+    """A mail as stored in the database."""
+
     gmail_id: str
     thread_id: str
     internal_date: datetime
@@ -46,7 +48,7 @@ def _collect(part: dict, plain: list[str], html: list[str]) -> None:
         for child in part["parts"]:
             _collect(child, plain, html)
         return
-    if part.get("filename"):  # Anhang
+    if part.get("filename"):  # attachment
         return
     if mime == "text/plain":
         plain.append(_decode(part))
@@ -63,6 +65,17 @@ def _html_to_text(markup: str) -> str:
 
 
 def extract_body_text(payload: dict) -> str:
+    """Extracts the plain-text body from a Gmail message payload.
+
+    Prefers ``text/plain`` parts. Falls back to ``text/html`` converted to text.
+    Attachments are ignored.
+
+    Args:
+        payload: The ``payload`` part of a Gmail message.
+
+    Returns:
+        The body text, or an empty string if the mail has no text.
+    """
     plain: list[str] = []
     html: list[str] = []
     _collect(payload, plain, html)
@@ -73,6 +86,7 @@ def extract_body_text(payload: dict) -> str:
 
 
 def parse_message(raw: dict) -> Mail:
+    """Converts a raw Gmail message (``format=full``) into a ``Mail``."""
     payload = raw.get("payload", {})
     headers = _headers(payload)
     internal_date = datetime.fromtimestamp(int(raw["internalDate"]) / 1000, tz=timezone.utc)

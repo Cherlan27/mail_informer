@@ -7,14 +7,24 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-RETRIES = 5  # googleapiclient wiederholt bei 429/5xx mit exponentiellem Backoff
+RETRIES = 5  # googleapiclient retries 429/5xx errors with exponential backoff
 
 
 class HistoryExpired(Exception):
-    """Der gespeicherte historyId ist bei Gmail nicht mehr gültig."""
+    """Gmail no longer accepts the stored history ID."""
 
 
 def load_credentials(token_path: str) -> Credentials:
+    """Loads the OAuth token and refreshes it if needed.
+
+    A refreshed token is written back to ``token_path``.
+
+    Args:
+        token_path: Path to the token file created by the ``auth`` command.
+
+    Returns:
+        Valid credentials.
+    """
     path = Path(token_path)
     creds = Credentials.from_authorized_user_file(str(path), SCOPES)
     if not creds.valid:
@@ -24,19 +34,33 @@ def load_credentials(token_path: str) -> Credentials:
 
 
 class GmailClient:
+    """Read-only access to the Gmail API."""
+
     def __init__(self, service):
         self._svc = service.users()
 
     @classmethod
     def from_token(cls, token_path: str) -> "GmailClient":
+        """Builds a client from the token file."""
         creds = load_credentials(token_path)
         return cls(build("gmail", "v1", credentials=creds, cache_discovery=False))
 
     def current_history_id(self) -> str:
+        """Returns the current history ID of the mailbox."""
         return self._svc.getProfile(userId="me").execute(num_retries=RETRIES)["historyId"]
 
     def new_message_ids(self, start_history_id: str) -> list[str]:
-        """IDs seit start_history_id hinzugekommener Mails (dedupliziert, in Reihenfolge)."""
+        """Lists IDs of mails added since a history ID.
+
+        Args:
+            start_history_id: The history ID to start from.
+
+        Returns:
+            Message IDs without duplicates, in the order Gmail returned them.
+
+        Raises:
+            HistoryExpired: If Gmail no longer knows ``start_history_id``.
+        """
         ids: dict[str, None] = {}
         token = None
         while True:
@@ -59,6 +83,7 @@ class GmailClient:
                 return list(ids)
 
     def message_ids_after(self, since: datetime) -> list[str]:
+        """Lists IDs of all mails received after ``since``, excluding spam and trash."""
         ids: list[str] = []
         token = None
         query = f"after:{int(since.timestamp())}"
@@ -72,6 +97,7 @@ class GmailClient:
                 return ids
 
     def get_message(self, message_id: str) -> dict | None:
+        """Fetches one full message. Returns None if it was deleted in the meantime."""
         try:
             return self._svc.messages().get(
                 userId="me", id=message_id, format="full"
