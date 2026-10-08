@@ -4,10 +4,10 @@ import pytest
 
 from mail_informer import db
 from mail_informer.gmail import HistoryExpired
+from mail_informer import sync
 from mail_informer.sync import run_sync
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
-pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="TEST_DATABASE_URL nicht gesetzt")
 
 
 class FakeGmail:
@@ -46,15 +46,6 @@ def raw(message_id, body="Text"):
             "body": {"data": base64.urlsafe_b64encode(body.encode()).decode()},
         },
     }
-
-
-@pytest.fixture
-def conn():
-    c = db.connect(DATABASE_URL)
-    c.execute("DROP TABLE IF EXISTS messages, sync_state, schema_migrations")
-    db.migrate(c)
-    yield c
-    c.close()
 
 
 def count(conn):
@@ -148,3 +139,43 @@ def test_advisory_lock_is_exclusive(conn):
         assert not db.try_lock(other)
     finally:
         other.close()
+
+
+def test_batches_commit_but_state_only_advances_at_end(conn, monkeypatch):
+    monkeypatch.setattr(sync, "BATCH_SIZE", 2)
+    gmail = FakeGmail()
+    run_sync(conn, gmail)
+    gmail.history_id = "200"
+    gmail.new_ids = ["a", "b", "c", "d", "e"]
+    gmail.messages = {i: raw(i) for i in gmail.new_ids}
+    assert run_sync(conn, gmail) == 5
+    assert count(conn) == 5
+    assert db.get_sync_state(conn)[0] == "200"
+
+
+def test_crash_in_later_batch_is_recovered_by_next_run(conn, monkeypatch):
+    monkeypatch.setattr(sync, "BATCH_SIZE", 2)
+    gmail = FakeGmail()
+    run_sync(conn, gmail)
+    gmail.history_id = "200"
+    gmail.new_ids = ["a", "b", "c"]
+    gmail.messages = {i: raw(i) for i in gmail.new_ids}
+    good = gmail.get_message
+
+    def boom(message_id):
+        if message_id == "c":
+            raise RuntimeError("kaputt")
+        return good(message_id)
+
+    gmail.get_message = boom
+    with pytest.raises(RuntimeError):
+        run_sync(conn, gmail)
+    assert db.get_sync_state(conn)[0] == "100"
+    assert count(conn) == 2
+
+    gmail.get_message = good
+    gmail.fetched.clear()
+    assert run_sync(conn, gmail) == 1
+    assert gmail.fetched == ["c"]
+    assert count(conn) == 3
+    assert db.get_sync_state(conn)[0] == "200"
