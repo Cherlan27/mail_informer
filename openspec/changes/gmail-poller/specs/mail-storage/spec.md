@@ -1,58 +1,58 @@
 ## Purpose
 
-Legt fest, welche Mail-Daten dauerhaft in Postgres gespeichert werden und wie der Zustand für Sync und spätere Analyse abgelegt ist.
+Defines which mail data is stored permanently in Postgres and how the state for sync and later analysis is kept.
 
 ## ADDED Requirements
 
-### Requirement: Gespeicherte Mail-Felder
-Das System SHALL pro Mail die Gmail-Message-ID, Thread-ID, Empfangsdatum, Absender, Empfänger, Betreff, Labels, Snippet, `body_text` und den Abrufzeitpunkt speichern. Die Gmail-Message-ID SHALL die Mail eindeutig identifizieren.
+### Requirement: Stored mail fields
+The system SHALL store, for each mail, the Gmail message ID, thread ID, received date, sender, recipients, subject, labels, snippet, `body_text`, and the fetch time. The Gmail message ID SHALL identify the mail uniquely.
 
-#### Scenario: Normale Mail
-- **WHEN** eine Mail mit text/plain-Teil importiert wird
-- **THEN** sind alle genannten Felder gespeichert und `body_text` enthält den Klartext
+#### Scenario: Normal mail
+- **WHEN** a mail with a text/plain part is imported
+- **THEN** all listed fields are stored and `body_text` contains the plain text
 
-### Requirement: Nur Klartext-Body
-Das System SHALL ausschließlich Klartext als Body speichern und KEIN HTML ablegen. Enthält eine Mail nur einen HTML-Teil, SHALL daraus Klartext abgeleitet und gespeichert werden.
+### Requirement: Plain-text body only
+The system SHALL store only plain text as the body and SHALL NOT store HTML. If a mail has only an HTML part, the system SHALL derive plain text from it and store that.
 
-#### Scenario: Reine HTML-Mail
-- **WHEN** eine Mail nur text/html enthält
-- **THEN** wird `body_text` aus dem HTML extrahiert und es wird kein HTML gespeichert
+#### Scenario: HTML-only mail
+- **WHEN** a mail contains only text/html
+- **THEN** `body_text` is extracted from the HTML and no HTML is stored
 
-#### Scenario: Mail ohne Text
-- **WHEN** eine Mail weder text/plain noch text/html enthält
-- **THEN** wird sie mit leerem `body_text` gespeichert
+#### Scenario: Mail without text
+- **WHEN** a mail contains neither text/plain nor text/html
+- **THEN** it is stored with an empty `body_text`
 
-### Requirement: Vollständiger Body
-Das System SHALL den Body ungekürzt speichern.
+### Requirement: Complete body
+The system SHALL store the body without truncation.
 
-#### Scenario: Lange Mail
-- **WHEN** eine sehr lange Mail importiert wird
-- **THEN** wird der gesamte Text gespeichert
+#### Scenario: Long mail
+- **WHEN** a very long mail is imported
+- **THEN** the whole text is stored
 
-### Requirement: Keine Anhänge
-Das System SHALL keine Anhänge speichern.
+### Requirement: No attachments
+The system SHALL NOT store attachments.
 
-#### Scenario: Mail mit Anhang
-- **WHEN** eine Mail mit Anhang importiert wird
-- **THEN** wird der Anhang nicht gespeichert, Text und Metadaten schon
+#### Scenario: Mail with attachment
+- **WHEN** a mail with an attachment is imported
+- **THEN** the attachment is not stored, but the text and metadata are
 
-### Requirement: Analysestatus
-Das System SHALL pro Mail einen Analysestatus führen, der für neue Mails den Wert `pending` hat, und SHALL diesen im Poller nie ändern.
+### Requirement: Analysis status
+The system SHALL keep an analysis status for each mail. New mails SHALL have the value `pending`. The poller SHALL never change it.
 
-#### Scenario: Neue Mail
-- **WHEN** eine Mail importiert wird
-- **THEN** hat sie den Analysestatus `pending`
+#### Scenario: New mail
+- **WHEN** a mail is imported
+- **THEN** its analysis status is `pending`
 
-### Requirement: Persistenter Sync-Zustand
-Das System SHALL den Sync-Punkt in der Datenbank speichern, sodass er Neustarts von Containern überdauert.
+### Requirement: Persistent sync state
+The system SHALL store the sync point in the database so that it survives container restarts.
 
-#### Scenario: Neustart
-- **WHEN** Container neu gestartet werden
-- **THEN** setzt der nächste Lauf am gespeicherten Sync-Punkt fort
+#### Scenario: Restart
+- **WHEN** the containers are restarted
+- **THEN** the next run continues from the stored sync point
 
-### Requirement: Schema-Initialisierung
-Das System SHALL das Datenbankschema bei Bedarf selbständig anlegen bzw. auf den aktuellen Stand bringen.
+### Requirement: Schema initialization
+The system SHALL create or update the database schema by itself when needed.
 
-#### Scenario: Leere Datenbank
-- **WHEN** der Poller gegen eine leere Datenbank startet
-- **THEN** werden die benötigten Tabellen angelegt
+#### Scenario: Empty database
+- **WHEN** the poller starts against an empty database
+- **THEN** the required tables are created

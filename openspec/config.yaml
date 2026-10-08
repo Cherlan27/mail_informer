@@ -1,32 +1,80 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Project context, shown to the AI when it creates artifacts.
+context: |
+  Project: mail_informer. Polls Gmail every 30 minutes and archives new mails
+  (metadata + plain-text body) in Postgres. A later stage will analyze them with an LLM.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Tech stack: Python 3.12, psycopg 3, Gmail API (google-api-python-client),
+  Postgres 16, Docker Compose, supercronic, pytest.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+  Architecture (keep these layers separate):
+  - gmail.py: Gmail API access only. No database code.
+  - parsing.py: pure functions, no I/O.
+  - db.py: all SQL. No business logic.
+  - sync.py: orchestration. Depends on the MailSource protocol, not on concrete clients.
+  - cli.py: entry point and wiring only.
+
+  Domain rules:
+  - Gmail access is read-only (scope gmail.readonly). Never request wider scopes.
+  - Writes must be idempotent (ON CONFLICT DO NOTHING). A run can be repeated safely.
+  - The sync state (history_id) advances only after all mails are stored.
+  - Schema changes are new numbered files in mail_informer/migrations/. Never edit
+    an applied migration.
+  - Never log or commit secrets, tokens, or mail content.
+
+  Conventions:
+  - Language: simple technical English for code, comments, docstrings, specs,
+    commit messages, and logs. Short sentences. No jargon where a plain word works.
+  - Docstrings: Google style (Args, Returns, Raises). Public functions and classes
+    only. Do not repeat what the type hints already say.
+  - Comments explain why, not what.
+  - Type hints on all function signatures.
+  - Commits: conventional commits (feat:, fix:, test:, docs:, chore:, refactor:).
+  - Dependencies: pinned in constraints.txt. Add a new dependency only with a reason.
+  - Config comes from environment variables (12-factor). Fail early if a required
+    value is missing.
+  - The container runs as a non-root user.
+
+# Per-artifact rules
+rules:
+  proposal:
+    - Keep it short. State the problem, the change, and the impact.
+    - Include a "Non-goals" section.
+    - Write in simple technical English.
+  specs:
+    - Use SHALL/MUST for requirements. Every requirement needs at least one scenario.
+    - Write scenarios as WHEN / THEN. Each one must be testable by one automated test.
+    - Describe behavior, not implementation.
+    - Write in simple technical English.
+  design:
+    - Explain decisions and the alternatives that were rejected, with reasons.
+    - Name risks and failure modes (crash mid-run, API errors, duplicate runs).
+    - State what happens to existing data (migration, rollback).
+    - Write in simple technical English.
+  tasks:
+    - Follow red-green-refactor. For each behavior, one task writes the failing test
+      (red), the next makes it pass (green), then clean up (refactor).
+    - Put the test task before the implementation task. Never the other way round.
+    - Keep each task small enough to finish in about 2 hours or less.
+    - End with a task that runs the full test suite and updates the README if needed.
+
+# Per-operation guidance
+operations:
+  apply:
+    guidance:
+      - Work test-first. Write one failing test, run it, and confirm it fails for the
+        right reason before writing any implementation (red).
+      - Write the smallest code that makes the test pass (green). Run the tests again.
+      - Refactor only while all tests are green. Do not mix refactoring with new behavior.
+      - Do not change behavior without a matching spec and test.
+      - Before marking a task done, run the full test suite and show the result.
+        Tests that need Postgres run with TEST_DATABASE_URL.
+      - Keep changes inside the scope of the current change. Note unrelated problems
+        instead of fixing them.
+      - Use Google-style docstrings and simple technical English in all new code.
+  archive:
+    guidance:
+      - Check that all tasks are done and the test suite is green before archiving.
+      - Sync delta specs into the main specs.
+      - Summarize the outcome in a few plain sentences.

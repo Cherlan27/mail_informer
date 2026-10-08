@@ -1,51 +1,58 @@
 ## Purpose
 
-Beschreibt Betrieb und Einrichtung des Pollers: Container-Stack, einmalige OAuth-Autorisierung und das 30-Minuten-Scheduling.
+Describes operation and setup of the poller: the container stack, the one-time OAuth authorization, and the 30-minute scheduling.
 
 ## ADDED Requirements
 
-### Requirement: Start per Compose
-Das System SHALL mit einem einzigen `docker compose up` Postgres und den Poller starten.
+### Requirement: Start with Compose
+The system SHALL start Postgres and the poller with a single `docker compose up`.
 
-#### Scenario: Stack starten
-- **WHEN** der Nutzer `docker compose up -d` ausführt, nachdem die Autorisierung erfolgt ist
-- **THEN** laufen Postgres und der Poller und die Daten liegen in einem persistenten Volume
+#### Scenario: Start the stack
+- **WHEN** the user runs `docker compose up -d` after the authorization is done
+- **THEN** Postgres and the poller run and the data is kept in a persistent volume
 
-### Requirement: Periodische Ausführung
-Das System SHALL den Abruf alle 30 Minuten als eigenständigen Lauf starten, der nach Abschluss endet.
+### Requirement: Periodic execution
+The system SHALL start the fetch every 30 minutes as a separate run that ends when it is done.
 
-#### Scenario: Zeitplan
-- **WHEN** der Stack läuft
-- **THEN** wird ca. alle 30 Minuten ein Lauf gestartet
+#### Scenario: Schedule
+- **WHEN** the stack is running
+- **THEN** a run starts about every 30 minutes
 
-#### Scenario: Keine parallelen Läufe
-- **WHEN** ein Lauf beim Start des nächsten noch aktiv ist
-- **THEN** startet der neue Lauf nicht parallel
+#### Scenario: No parallel runs
+- **WHEN** a run is still active when the next one starts
+- **THEN** the new run does not start in parallel
 
-### Requirement: Einmalige OAuth-Autorisierung auf dem Host
-Das System SHALL einen Befehl bereitstellen, der auf dem Host den Gmail-OAuth-Consent im Browser durchführt und die Zugangsdaten für den Poller-Container ablegt. Der Zugriff SHALL auf Lesen von Mails beschränkt sein.
+### Requirement: One-time OAuth authorization on the host
+The system SHALL provide a command that performs the Gmail OAuth consent in the browser on the host and stores the credentials for the poller container. The access SHALL be limited to reading mails.
 
-#### Scenario: Erstautorisierung
-- **WHEN** der Nutzer den Auth-Befehl ausführt und im Browser zustimmt
-- **THEN** wird ein Token gespeichert, das der Container nutzt, und es enthält nur Lesezugriff
+#### Scenario: First authorization
+- **WHEN** the user runs the auth command and agrees in the browser
+- **THEN** a token is stored that the container uses, and it grants read access only
 
-### Requirement: Token-Erneuerung
-Das System SHALL den Zugriffstoken über den Refresh-Token selbständig erneuern und den aktualisierten Token persistent halten.
+### Requirement: Token refresh
+The system SHALL refresh the access token by itself using the refresh token and SHALL keep the updated token persistent.
 
-#### Scenario: Abgelaufener Zugriffstoken
-- **WHEN** der Zugriffstoken beim Lauf abgelaufen ist
-- **THEN** wird er erneuert und der Lauf läuft normal weiter
+#### Scenario: Expired access token
+- **WHEN** the access token has expired during a run
+- **THEN** it is refreshed and the run continues normally
 
-### Requirement: Fehlerverhalten
-Das System SHALL bei Fehlern (Netzwerk, API, Datenbank, Auth) den Lauf mit einem Fehlerstatus und einer Log-Meldung beenden, ohne den Scheduler zu beenden, sodass der nächste Lauf erneut versucht.
+### Requirement: Error behavior
+On errors (network, API, database, auth), the system SHALL end the run with an error status and a log message, without stopping the scheduler, so that the next run tries again.
 
-#### Scenario: Gmail nicht erreichbar
-- **WHEN** die Gmail-API im Lauf nicht erreichbar ist
-- **THEN** wird der Fehler geloggt, nichts fortgeschrieben und der nächste planmäßige Lauf versucht es erneut
+#### Scenario: Gmail not reachable
+- **WHEN** the Gmail API cannot be reached during a run
+- **THEN** the error is logged, nothing is advanced, and the next scheduled run tries again
 
-### Requirement: Geheimnisse außerhalb des Repos
-Das System SHALL Client-Secret, Token und Datenbank-Passwort nicht im Repository ablegen.
+### Requirement: Health reporting
+The system SHALL report the poller as unhealthy when the last successful sync is older than 90 minutes.
 
-#### Scenario: Repository-Inhalt
-- **WHEN** das Repository geprüft wird
-- **THEN** sind Secrets per Ignore-Regel ausgeschlossen und nur Beispielkonfiguration ist enthalten
+#### Scenario: Syncs keep failing
+- **WHEN** no run has succeeded for more than 90 minutes
+- **THEN** the container healthcheck fails
+
+### Requirement: Secrets outside the repository
+The system SHALL NOT keep the client secret, token, or database password in the repository.
+
+#### Scenario: Repository content
+- **WHEN** the repository is checked
+- **THEN** secrets are excluded by ignore rules and only example configuration is included

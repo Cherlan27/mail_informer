@@ -1,45 +1,45 @@
-## 1. Projekt-Setup
+## 1. Project setup
 
-- [x] 1.1 Python-Projekt anlegen (pyproject, Paketstruktur `mail_informer/`, Abhängigkeiten: Google API Client/OAuth, psycopg, HTML-zu-Text-Bibliothek, pytest)
-- [x] 1.2 `.gitignore` und `.env.example` anlegen (Secrets, `token.json`, `client_secret.json` ausschließen)
-- [x] 1.3 Konfiguration aus Umgebungsvariablen laden (DB-URL, Pfade zu Token und Client-Secret)
+- [x] 1.1 Create the Python project (pyproject, package structure `mail_informer/`, dependencies: Google API client/OAuth, psycopg, HTML-to-text library, pytest)
+- [x] 1.2 Create `.gitignore` and `.env.example` (exclude secrets, `token.json`, `client_secret.json`)
+- [x] 1.3 Load configuration from environment variables (database URL, paths to token and client secret)
 
-## 2. Datenbank
+## 2. Database
 
-- [x] 2.1 SQL-Migration für `messages` und `sync_state` schreiben
-- [x] 2.2 Migrationsrunner implementieren, der beim Start fehlende Migrationen anwendet
-- [x] 2.3 Repository-Funktionen: Mails per `ON CONFLICT DO NOTHING` speichern, Sync-Punkt lesen/schreiben, Datum der letzten Mail lesen
-- [x] 2.4 Tests gegen eine Test-Postgres-Instanz (Idempotenz, Transaktion Mails + Sync-Punkt)
+- [x] 2.1 Write the SQL migration for `messages` and `sync_state`
+- [x] 2.2 Implement the migration runner that applies missing migrations at startup
+- [x] 2.3 Repository functions: store mails with `ON CONFLICT DO NOTHING`, read/write the sync point, read the date of the last mail
+- [x] 2.4 Tests against a test Postgres instance (idempotency, transaction for mails + sync point)
 
-## 3. Gmail-Zugriff und Auth
+## 3. Gmail access and auth
 
-- [x] 3.1 `auth`-Befehl: OAuth-Flow auf dem Host mit Scope `gmail.readonly`, Token ablegen
-- [x] 3.2 Gmail-Client mit Token-Laden, Refresh und Zurückschreiben des erneuerten Tokens
-- [x] 3.3 Retry/Backoff bei 429 und 5xx
+- [x] 3.1 `auth` command: OAuth flow on the host with scope `gmail.readonly`, save the token
+- [x] 3.2 Gmail client that loads the token, refreshes it, and writes the refreshed token back
+- [x] 3.3 Retry/backoff on 429 and 5xx
 
-## 4. Mail-Parsing
+## 4. Mail parsing
 
-- [x] 4.1 Header-Extraktion (Absender, Empfänger, Betreff, Datum) in Datenmodell abbilden
-- [x] 4.2 Body-Extraktion: text/plain bevorzugt, rekursiv durch multipart; Fallback HTML zu Text; leerer Body, wenn nichts vorhanden; Anhänge ignorieren
-- [x] 4.3 Tests mit Beispiel-Nachrichten (plain, multipart/alternative, nur HTML, ohne Text, mit Anhang)
+- [x] 4.1 Extract headers (sender, recipient, subject, date) into the data model
+- [x] 4.2 Body extraction: prefer text/plain, recurse through multipart; fall back from HTML to text; empty body if there is no text; ignore attachments
+- [x] 4.3 Tests with sample messages (plain, multipart/alternative, HTML only, no text, with attachment)
 
-## 5. Sync-Logik
+## 5. Sync logic
 
-- [x] 5.1 Erster Lauf: `getProfile`, `historyId` speichern, nichts importieren
-- [x] 5.2 Inkrementeller Lauf: `history.list` (nur `messagesAdded`, Paginierung), neue IDs deduplizieren, Mails holen, 404 überspringen
-- [x] 5.3 Mails und neuen Sync-Punkt in einer Transaktion schreiben
-- [x] 5.4 Fallback bei abgelaufener historyId: `messages.list` mit Datumsfilter, danach neuer Sync-Punkt
-- [x] 5.5 Advisory Lock gegen parallele Läufe
-- [x] 5.6 Tests mit gemocktem Gmail-Client (erster Lauf, Delta, keine Neuen, Fehler beim Speichern, abgelaufener Sync-Punkt)
+- [x] 5.1 First run: `getProfile`, store the `historyId`, import nothing
+- [x] 5.2 Incremental run: `history.list` (only `messagesAdded`, pagination), deduplicate new IDs, fetch mails, skip 404
+- [x] 5.3 Write mails and the new sync point (mails in batches, sync point after the last batch)
+- [x] 5.4 Fallback when the history ID has expired: `messages.list` with a date filter, then a new sync point
+- [x] 5.5 Advisory lock against parallel runs
+- [x] 5.6 Tests with a mocked Gmail client (first run, delta, no new mails, error while storing, expired sync point)
 
-## 6. Einstiegspunkt und Logging
+## 6. Entry point and logging
 
-- [x] 6.1 CLI mit Unterbefehlen `auth` und `run`
-- [x] 6.2 Strukturiertes Logging; bei Fehler Exit-Code ungleich 0
+- [x] 6.1 CLI with the subcommands `auth`, `run`, and `health`
+- [x] 6.2 Logging; non-zero exit code on error
 
-## 7. Container und Betrieb
+## 7. Container and operations
 
-- [x] 7.1 Dockerfile für den Poller mit supercronic und Crontab (alle 30 Minuten)
-- [x] 7.2 `docker-compose.yml` mit Postgres (Volume, Healthcheck) und Poller (Token-Volume, `depends_on` healthy)
-- [x] 7.3 README: Google-Cloud-Einrichtung (Gmail API, OAuth-Client, „In production"), `auth` ausführen, Stack starten
-- [ ] 7.4 End-to-End-Test: Stack starten, Testmail senden, nach einem Lauf in der DB prüfen
+- [x] 7.1 Dockerfile for the poller with supercronic and a crontab (every 30 minutes)
+- [x] 7.2 `docker-compose.yml` with Postgres (volume, healthcheck) and the poller (token volume, `depends_on` healthy, healthcheck)
+- [x] 7.3 README: Google Cloud setup (Gmail API, OAuth client, "In production"), run `auth`, start the stack
+- [ ] 7.4 End-to-end test: start the stack, send a test mail, check the database after one run

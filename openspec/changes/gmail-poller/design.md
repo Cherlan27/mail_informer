@@ -1,37 +1,37 @@
 ## Context
 
-Greenfield-Projekt, siehe proposal.md. Läuft auf einem Windows-Rechner mit Docker Desktop, der nicht dauerhaft an ist. Eine spätere Stufe (lokales LLM, Home Assistant) soll auf den gespeicherten Mails aufsetzen.
+Greenfield project, see proposal.md. It runs on a Windows PC with Docker Desktop that is not always on. A later stage (local LLM, Home Assistant) will build on the stored mails.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Robuster, idempotenter Import, der Ausfälle und Ruhezustand selbst nachholt.
-- Klare Übergabe an eine spätere Analysestufe nur über die Datenbank.
+- A robust, idempotent import that catches up after outages and sleep by itself.
+- A clear hand-over to a later analysis stage, only through the database.
 
 **Non-Goals:**
-- Kein Daemon, keine Push-Benachrichtigung (Gmail Pub/Sub), keine Webschnittstelle.
+- No daemon, no push notifications (Gmail Pub/Sub), no web interface.
 
 ## Decisions
 
-- **Gmail API statt IMAP.** `history.list` mit `historyId` liefert effiziente Deltas; Labels und Threads sind nativ. Scope `gmail.readonly`. IMAP wäre einfacher einzurichten, ist aber bei Deltas und Labels schlechter.
-- **Python, One-shot-Prozess.** Ein Lauf = Sync-Punkt lesen, neue Mails holen, in einer Transaktion schreiben, Sync-Punkt setzen, beenden. Kein Zustand im Prozess, ein Crash kostet höchstens einen Lauf.
-- **Scheduling per supercronic im Poller-Container.** Alles liegt im Repo, `docker compose up -d` genügt. Alternative Windows Task Scheduler mit `docker compose run --rm`: robuster gegen Hänger, aber Setup außerhalb des Repos. Gegen Überlappung zusätzlich ein Postgres Advisory Lock (`pg_try_advisory_lock`); wer ihn nicht bekommt, beendet sich still.
-- **Initialisierung über `users.getProfile`.** Die zurückgegebene `historyId` wird als Startpunkt gespeichert; kein Backfill.
-- **Nur `messagesAdded` aus der History** wird ausgewertet. Je neuer Message-ID wird `messages.get(format=full)` aufgerufen. Fehlt die Mail inzwischen (404, z. B. gelöscht), wird sie übersprungen.
-- **Fallback bei 404 auf history.list:** `messages.list` mit `q=after:<Datum der letzten Mail minus Sicherheitspuffer>`, danach neuer Sync-Punkt über `getProfile`. Duplikate fängt `ON CONFLICT (gmail_id) DO NOTHING` ab.
-- **Body-Extraktion:** text/plain bevorzugen (rekursiv durch multipart), sonst text/html per HTML-zu-Text-Bibliothek. Kein HTML wird gespeichert (lokales LLM, weniger Tokens).
+- **Gmail API instead of IMAP.** `history.list` with `historyId` gives efficient deltas. Labels and threads are native. Scope is `gmail.readonly`. IMAP is easier to set up, but worse for deltas and labels.
+- **Python, one-shot process.** One run = read the sync point, fetch new mails, write them in one transaction, set the sync point, exit. The process keeps no state. A crash costs at most one run.
+- **Scheduling with supercronic in the poller container.** Everything is in the repo and `docker compose up -d` is enough. The alternative is the Windows Task Scheduler with `docker compose run --rm`. It is more robust against hangs, but the setup lives outside the repo. To prevent overlapping runs, we also use a Postgres advisory lock (`pg_try_advisory_lock`). A run that does not get the lock exits quietly.
+- **Initialization with `users.getProfile`.** The returned `historyId` is stored as the starting point. No backfill.
+- **Only `messagesAdded` from the history** is used. For each new message ID, we call `messages.get(format=full)`. If the mail is gone by then (404, for example deleted), it is skipped.
+- **Fallback on 404 from history.list:** `messages.list` with `q=after:<date of the last mail minus a safety buffer>`, then a new sync point from `getProfile`. `ON CONFLICT (gmail_id) DO NOTHING` absorbs duplicates.
+- **Body extraction:** prefer text/plain (recursively through multipart). Otherwise convert text/html with an HTML-to-text library. No HTML is stored (local LLM, fewer tokens).
 - **Schema (Postgres):**
   - `messages(gmail_id PK, thread_id, internal_date, from_addr, to_addrs, subject, labels text[], snippet, body_text, fetched_at, analysis_status default 'pending')`
   - `sync_state(id=1 PK, history_id, updated_at)`
-  - Schema wird beim Start des Pollers angelegt (einfache versionierte SQL-Migrationen statt ORM).
-- **Auth:** `auth`-Befehl läuft auf dem Host (InstalledAppFlow, lokaler Redirect) und schreibt `token.json` in ein Verzeichnis, das als Volume in den Container gemountet wird. Der Poller schreibt erneuerte Tokens dorthin zurück. Secrets liegen in `.env` bzw. `secrets/`, beides in `.gitignore`.
-- **Transaktion:** Mails und neuer `history_id` werden in einer DB-Transaktion geschrieben, damit der Sync-Punkt nie vor den Daten fortschreitet.
+  - The schema is created when the poller starts (simple versioned SQL migrations instead of an ORM).
+- **Auth:** the `auth` command runs on the host (InstalledAppFlow, local redirect) and writes `token.json` to a directory that is mounted as a volume into the container. The poller writes refreshed tokens back to it. Secrets live in `.env` and `secrets/`. Both are in `.gitignore`.
+- **Transactions and batches:** mails are stored in batches. The new `history_id` is written only after the last batch. The insert is idempotent, so after a crash the next run repeats the work safely. The sync point never moves ahead of the data.
 
 ## Risks / Trade-offs
 
-- OAuth-App im Testing-Status → Refresh-Token verfällt nach 7 Tagen → App auf „In production" stellen (unverified genügt); der Fehler wird geloggt.
-- historyId älter als ca. eine Woche → Fallback per Datumsabfrage.
-- Rate Limits der Gmail-API bei großen Deltas → sequentielle Abrufe mit Retry/Backoff bei 429/5xx.
-- Docker Desktop läuft nicht → Lauf entfällt, wird beim nächsten Start nachgeholt.
-- Mails ohne Text bleiben mit leerem Body → für das spätere LLM irrelevant, im Archiv aber sichtbar.
-- Gelöschte oder umgelabelte Mails werden nicht nachgezogen (bewusst: Archiv).
+- OAuth app in Testing status → the refresh token expires after 7 days → set the app to "In production" (unverified is enough). The error is logged.
+- History ID older than about one week → fallback by date query.
+- Gmail API rate limits for large deltas → sequential requests with retry and backoff on 429/5xx.
+- Docker Desktop is not running → the run is skipped and caught up at the next start.
+- Mails without text keep an empty body → irrelevant for the later LLM, but visible in the archive.
+- Deleted or relabeled mails are not followed (on purpose: this is an archive).

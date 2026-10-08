@@ -1,23 +1,23 @@
 # mail_informer
 
-Pollt alle 30 Minuten dein Gmail-Postfach und archiviert neue Mails (Metadaten + Klartext-Body) in Postgres. Import startet ab dem Zeitpunkt der Initialisierung, es gibt keinen Historien-Backfill.
+Polls your Gmail mailbox every 30 minutes and archives new mails (metadata + plain-text body) in Postgres. The import starts when you set it up. There is no backfill of old mails.
 
-## Einrichtung
+## Setup
 
-### 1. Google Cloud (einmalig)
+### 1. Google Cloud (once)
 
-1. Projekt auf https://console.cloud.google.com anlegen.
-2. „APIs & Dienste → Bibliothek": **Gmail API** aktivieren.
-3. OAuth-Zustimmungsbildschirm: Nutzertyp *Extern*, Scope `https://www.googleapis.com/auth/gmail.readonly`, Status **„In production"** setzen. Bei „Testing" läuft der Refresh-Token nach 7 Tagen ab.
-4. „Anmeldedaten → OAuth-Client-ID" vom Typ **Desktop-App** erstellen, JSON herunterladen und als `secrets/client_secret.json` ablegen.
+1. Create a project at https://console.cloud.google.com.
+2. Open "APIs & Services → Library" and enable the **Gmail API**.
+3. OAuth consent screen: user type *External*, scope `https://www.googleapis.com/auth/gmail.readonly`, and set the status to **"In production"**. In "Testing" status the refresh token expires after 7 days.
+4. Under "Credentials", create an **OAuth client ID** of type **Desktop app**. Download the JSON and save it as `secrets/client_secret.json`.
 
-### 2. Konfiguration
+### 2. Configuration
 
 ```
-copy .env.example .env     # POSTGRES_PASSWORD setzen
+copy .env.example .env     # set POSTGRES_PASSWORD
 ```
 
-### 3. Autorisieren (einmalig, auf dem Host)
+### 3. Authorize (once, on the host)
 
 ```
 python -m venv .venv
@@ -25,28 +25,36 @@ python -m venv .venv
 .venv\Scripts\python -m mail_informer auth
 ```
 
-Der Browser öffnet sich; nach der Zustimmung liegt `secrets/token.json` bereit. Bei der Warnung „Nicht verifizierte App": *Erweitert → Weiter*.
+The browser opens. After you agree, `secrets/token.json` is ready. If you see the warning "unverified app", click *Advanced → Continue*.
 
-### 4. Starten
+### 4. Start
 
 ```
 docker compose up -d
 docker compose logs -f poller
 ```
 
-Beim Start läuft sofort ein Lauf (holt nach Ruhezustand nach), danach alle 30 Minuten. Der allererste Lauf setzt nur den Startpunkt; Mails, die danach eintreffen, werden importiert.
+A run starts right away (this catches up after sleep). After that, a run starts every 30 minutes. The very first run only sets the starting point. Mails that arrive after it are imported.
 
-## Hinweise
+## Notes
 
-- Verbindung vom Host zur DB: `127.0.0.1:5432` verwenden, nicht `localhost` (unter Windows wird sonst IPv6 versucht und die Verbindung hängt).
-- Ist der Sync-Punkt bei Gmail abgelaufen (Pause > ca. 1 Woche), lädt der Poller per Datumsabfrage nach.
-- Neue Mails haben `analysis_status = 'pending'`; das ist die Übergabe an die spätere LLM-Stufe.
+- To connect to the database from the host, use `127.0.0.1:5432`, not `localhost`. On Windows, `localhost` tries IPv6 and the connection hangs.
+- If Gmail no longer knows the sync point (pause longer than about one week), the poller reloads mails by date.
+- New mails have `analysis_status = 'pending'`. This is the hand-over to the later LLM stage.
 
-## Entwicklung
+## Operations
+
+- `docker compose ps` shows the poller as `unhealthy` if the last successful sync is older than 90 minutes (`python -m mail_informer health`).
+- The container runs as a non-root user (UID 1000). `secrets/` is mounted writable because the poller rewrites the OAuth token when it refreshes it. On Linux hosts, the directory must be writable for UID 1000 (`chown -R 1000 secrets`). `secrets/` is listed in `.gitignore` and `.dockerignore`.
+- Dependencies are pinned in `constraints.txt` (Docker build and CI). To update it: install the project in a fresh venv with `pip install -e .`, then write `pip freeze` to `constraints.txt`. Leave out the project itself and the dev packages.
+
+## Development
 
 ```
 .venv\Scripts\pip install -e ".[dev]"
 docker compose up -d postgres
-set TEST_DATABASE_URL=postgresql://mail_informer:<passwort>@127.0.0.1:5432/mail_informer
+set TEST_DATABASE_URL=postgresql://mail_informer:<password>@127.0.0.1:5432/mail_informer
 .venv\Scripts\python -m pytest
 ```
+
+Tests that need Postgres are skipped when `TEST_DATABASE_URL` is not set.

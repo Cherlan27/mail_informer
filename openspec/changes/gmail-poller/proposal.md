@@ -1,32 +1,32 @@
 ## Why
 
-Gmail-Mails sollen dauerhaft und strukturiert in einer eigenen Postgres-Datenbank liegen, damit später ein lokales LLM sie prüfen, zusammenfassen und bei bestimmten Mails eine Home-Assistant-Nachricht auslösen kann. Dafür fehlt zuerst die Grundlage: ein zuverlässiger, periodischer Import.
+Gmail mails should be stored in a structured way in our own Postgres database. Later, a local LLM can check them, summarize them, and trigger a Home Assistant message for certain mails. The first thing we need is a reliable, periodic import.
 
 ## What Changes
 
-- Neuer Python-Poller, der alle 30 Minuten neue Gmail-Mails über die Gmail API holt (inkrementell per `historyId`) und in Postgres schreibt.
-- Gespeichert werden Metadaten und ausschließlich `body_text` (bei reinen HTML-Mails wird der Text aus dem HTML extrahiert; kein `body_html`).
-- Die DB ist ein reines Archiv: es gibt keinen Backfill der Historie, der Import startet ab dem Zeitpunkt der Initialisierung; Löschungen/Statusänderungen in Gmail werden nicht nachgezogen.
-- Einmaliger interaktiver `auth`-Schritt auf dem Host für den OAuth-Consent, Token wird per Volume/Secret in den Container gegeben.
-- `docker-compose` mit Postgres und Poller-Container; ein interner Scheduler (supercronic) startet den One-shot-Lauf alle 30 Minuten.
-- Fallback bei abgelaufener `historyId`: Nachladen per `messages.list` mit Datumsfilter, idempotent über `ON CONFLICT DO NOTHING`.
-- Pro Mail ein `analysis_status`-Feld (Standard `pending`) als Übergabepunkt für die spätere LLM-Stufe.
+- New Python poller. Every 30 minutes it fetches new Gmail mails through the Gmail API (incremental, using `historyId`) and writes them to Postgres.
+- It stores metadata and only `body_text`. For HTML-only mails, the text is extracted from the HTML. There is no `body_html`.
+- The database is a pure archive. There is no backfill of old mails: the import starts when the poller is initialized. Deletions and status changes in Gmail are not followed.
+- One interactive `auth` step on the host for the OAuth consent. The token is given to the container through a volume or secret.
+- `docker-compose` with Postgres and a poller container. An internal scheduler (supercronic) starts a one-shot run every 30 minutes.
+- Fallback when the `historyId` has expired: reload with `messages.list` and a date filter. This is idempotent because of `ON CONFLICT DO NOTHING`.
+- Each mail has an `analysis_status` field (default `pending`) as the hand-over point for the later LLM stage.
 
-Nicht Teil dieser Änderung (Non-goals): LLM-Analyse, Home-Assistant-Benachrichtigung, Anhänge, Historien-Backfill.
+Non-goals: LLM analysis, Home Assistant notification, attachments, backfill of old mails.
 
 ## Capabilities
 
 ### New Capabilities
-- `mail-sync`: Inkrementelles Abholen neuer Gmail-Mails per API, Initialisierung des Sync-Punkts, Fallback bei abgelaufener historyId, idempotentes Schreiben.
-- `mail-storage`: Postgres-Schema und Speicherregeln für Mails (Metadaten, `body_text`, Sync-Zustand, `analysis_status`).
-- `poller-runtime`: Betrieb per docker-compose, OAuth-Erstautorisierung auf dem Host und 30-Minuten-Scheduling.
+- `mail-sync`: Incremental fetch of new Gmail mails through the API, initialization of the sync point, fallback when the history ID has expired, idempotent writes.
+- `mail-storage`: Postgres schema and storage rules for mails (metadata, `body_text`, sync state, `analysis_status`).
+- `poller-runtime`: Operation with docker-compose, first OAuth authorization on the host, and 30-minute scheduling.
 
 ### Modified Capabilities
-<!-- keine -->
+<!-- none -->
 
 ## Impact
 
-- Neues Projekt ohne bestehenden Code; neue Dateien: Python-Paket, Dockerfile, `docker-compose.yml`, DB-Migration/Schema.
-- Abhängigkeiten: Google API Client / OAuth-Bibliotheken, Postgres-Treiber, HTML-zu-Text-Bibliothek.
-- Externe Voraussetzungen: Google-Cloud-Projekt mit aktivierter Gmail API und OAuth-Client (App-Status „In production", sonst läuft der Refresh-Token nach 7 Tagen ab).
-- Läuft auf dem Windows-Rechner mit Docker Desktop; Lücken durch Ruhezustand werden über die historyId nachgeholt.
+- New project without existing code. New files: Python package, Dockerfile, `docker-compose.yml`, database migration/schema.
+- Dependencies: Google API client and OAuth libraries, Postgres driver, HTML-to-text library.
+- External requirements: a Google Cloud project with the Gmail API enabled and an OAuth client. The app status must be "In production". Otherwise the refresh token expires after 7 days.
+- Runs on the Windows PC with Docker Desktop. Gaps caused by sleep are caught up through the history ID.

@@ -1,51 +1,51 @@
 ## Purpose
 
-Beschreibt, wie neue Gmail-Mails inkrementell und idempotent vom Gmail-Konto abgeholt werden, ohne Historie nachzuladen.
+Describes how new Gmail mails are fetched from the Gmail account incrementally and idempotently, without loading old mails.
 
 ## ADDED Requirements
 
-### Requirement: Initialisierung ab jetzt
-Beim allerersten Lauf SHALL das System den aktuellen Sync-Punkt des Gmail-Kontos als Startpunkt speichern und KEINE bestehenden Mails importieren.
+### Requirement: Initialize from now
+On the very first run, the system SHALL store the current sync point of the Gmail account as the starting point and SHALL NOT import any existing mails.
 
-#### Scenario: Erster Lauf
-- **WHEN** kein Sync-Zustand existiert und der Poller läuft
-- **THEN** wird der aktuelle Sync-Punkt gespeichert und keine Mail in die Datenbank geschrieben
+#### Scenario: First run
+- **WHEN** no sync state exists and the poller runs
+- **THEN** the current sync point is stored and no mail is written to the database
 
-### Requirement: Inkrementeller Abruf neuer Mails
-Das System SHALL bei jedem Lauf alle Mails importieren, die seit dem gespeicherten Sync-Punkt neu im Konto eingegangen sind, und den Sync-Punkt anschließend fortschreiben.
+### Requirement: Incremental fetch of new mails
+On each run, the system SHALL import all mails that arrived in the account since the stored sync point, and then advance the sync point.
 
-#### Scenario: Neue Mails vorhanden
-- **WHEN** seit dem letzten Lauf drei neue Mails eingegangen sind
-- **THEN** werden drei Mails gespeichert und der Sync-Punkt auf den neuesten Stand gesetzt
+#### Scenario: New mails present
+- **WHEN** three new mails arrived since the last run
+- **THEN** three mails are stored and the sync point is set to the latest state
 
-#### Scenario: Keine neuen Mails
-- **WHEN** seit dem letzten Lauf nichts eingegangen ist
-- **THEN** ändert sich der Mailbestand nicht und der Lauf endet erfolgreich
+#### Scenario: No new mails
+- **WHEN** nothing arrived since the last run
+- **THEN** the stored mails do not change and the run ends successfully
 
-### Requirement: Idempotenz
-Das System SHALL dieselbe Mail höchstens einmal speichern, auch wenn sie in mehreren Läufen oder mehrfach in einer Antwort der Gmail-API auftaucht.
+### Requirement: Idempotency
+The system SHALL store the same mail at most once, even if it appears in several runs or several times in one Gmail API response.
 
-#### Scenario: Wiederholter Lauf
-- **WHEN** ein Lauf nach einem Abbruch denselben Bereich erneut verarbeitet
-- **THEN** entstehen keine doppelten Einträge
+#### Scenario: Repeated run
+- **WHEN** a run processes the same range again after an abort
+- **THEN** no duplicate entries are created
 
-### Requirement: Sync-Punkt erst nach erfolgreichem Schreiben
-Das System SHALL den Sync-Punkt nur fortschreiben, nachdem alle zugehörigen Mails erfolgreich gespeichert wurden.
+### Requirement: Sync point only after a successful write
+The system SHALL advance the sync point only after all mails that belong to it were stored successfully.
 
-#### Scenario: Fehler beim Speichern
-- **WHEN** das Speichern einer Mail fehlschlägt
-- **THEN** bleibt der alte Sync-Punkt erhalten und der nächste Lauf holt die Mail erneut
+#### Scenario: Error while storing
+- **WHEN** storing a mail fails
+- **THEN** the old sync point is kept and the next run fetches the mail again
 
-### Requirement: Fallback bei abgelaufenem Sync-Punkt
-Ist der gespeicherte Sync-Punkt von Gmail nicht mehr gültig, SHALL das System Mails stattdessen anhand des Datums der zuletzt gespeicherten Mail nachladen und danach einen neuen Sync-Punkt setzen.
+### Requirement: Fallback when the sync point has expired
+If Gmail no longer accepts the stored sync point, the system SHALL reload mails based on the date of the last stored mail and then set a new sync point.
 
-#### Scenario: Lange Pause
-- **WHEN** der Poller länger als die Gültigkeit des Sync-Punkts nicht lief
-- **THEN** werden die in der Zwischenzeit eingegangenen Mails ohne Duplikate nachgeladen und ein neuer Sync-Punkt gespeichert
+#### Scenario: Long pause
+- **WHEN** the poller did not run for longer than the sync point stays valid
+- **THEN** the mails that arrived in the meantime are loaded without duplicates and a new sync point is stored
 
-### Requirement: Nur neue Mails, keine Nachführung
-Das System SHALL nur dem Konto hinzugefügte Mails berücksichtigen; Löschungen und Label- oder Statusänderungen bestehender Mails SHALL nicht in die Datenbank übernommen werden.
+### Requirement: New mails only, no follow-up
+The system SHALL consider only mails added to the account. Deletions and label or status changes of existing mails SHALL NOT be applied to the database.
 
-#### Scenario: Mail gelöscht
-- **WHEN** eine bereits gespeicherte Mail in Gmail gelöscht wird
-- **THEN** bleibt sie unverändert in der Datenbank
+#### Scenario: Mail deleted
+- **WHEN** an already stored mail is deleted in Gmail
+- **THEN** it stays unchanged in the database
