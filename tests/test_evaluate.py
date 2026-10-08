@@ -169,3 +169,21 @@ def test_evaluate_command_prints_the_report_and_returns_0(conn, tmp_path, monkey
     assert cli.main(["evaluate", "--labels", str(f), "--model", "other-model"]) == 0
     assert seen["name"] == "other-model"
     assert "other-model" in capsys.readouterr().out
+
+
+def test_wrong_importance_lists_each_mail_with_expected_and_answered_level(conn):
+    for i in "abc":
+        add(conn, i)
+    model = FakeModel({"a": ("work", "normal"), "b": ("work", "important"), "c": ("work", "ignore")})
+    report = evaluate(conn, model, labels(
+        ("a", "work", "normal"), ("b", "work", "ignore"), ("c", "work", "urgent")))
+    assert report.wrong_importance == [("b", "ignore", "important"), ("c", "urgent", "ignore")]
+    text = format_report(report, "m")
+    assert "b: ignore -> important" in text
+    assert "c: urgent -> ignore" in text
+
+
+def test_invalid_answers_are_listed_as_wrong_importance(conn):
+    add(conn, "a")
+    report = evaluate(conn, FakeModel({"a": InvalidAnswer("x")}), labels(("a", "work", "normal")))
+    assert report.wrong_importance == [("a", "normal", "invalid")]

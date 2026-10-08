@@ -100,6 +100,21 @@ A new package `mail_informer/analysis/` next to the existing modules:
 
 - Alternative: pick a well-known model and trust it. Rejected: the mix of German and English mails and the personal urgent rules are specific, and the cost of a bad rating is a missed important mail.
 
+**Measurement (provisional).** Set: the 36 real mails of the archive plus 13 sample mails written for the test (6 urgent, 2 important-looking, 1 phishing, 1 prompt-injection newsletter, and others). All labels are proposals and still need a review by the owner. The runs used a throwaway database, never the real archive. The GPU was an RTX 5090 and both models ran fully on it.
+
+| Model | Prompt | Importance correct | Category correct | Missed urgent | False urgent | Time for 49 mails |
+|---|---|---|---|---|---|---|
+| qwen3:8b | v1 | 27/49 | 33/49 | 1 | 1 | 2 min 17 s |
+| gemma3:12b | v1 | 32/49 | 34/49 | 2 | 2 | 53 s |
+| gemma3:12b | v2 | 42/49 | 34/49 | 0 | 2 | not measured |
+| qwen3:8b | v2 | 45/49 | 32/49 | 0 | 1 | not measured |
+
+- Both models missed approval and rejection letters from authorities with prompt v1. The cause was a vague prompt, not the models. Prompt v2 names the authorities and says that every decision letter is urgent.
+- Most remaining mistakes are newsletters rated `normal` instead of `ignore`. This is harmless: neither level leads to a notification.
+- The only false `urgent` of qwen3:8b is the phishing sample. It is a bulk mail, so the bulk guard lowers it to `important`. The guard works as designed.
+- **Caveat:** prompt v2 was written after looking at the mistakes on this same set, and the sample mails were written by the same author as the prompt. The numbers are therefore too good. They must be confirmed on new, real mails before the stage is trusted.
+- **Provisional choice:** qwen3:8b with prompt v2. It meets the bar (no missed urgent mail) and has the fewest wrong ratings. gemma3:12b is faster and is the fallback.
+
 ### 10. Healthcheck
 `analyzer-health` fails when unanalyzed mails exist and `last_ok_at` is older than 30 minutes. With no work it passes. A switched-off model server therefore shows up as `unhealthy` after half an hour, but an idle analyzer does not.
 

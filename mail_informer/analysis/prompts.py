@@ -6,7 +6,7 @@ and the analyzer creates new results for the new version.
 
 from . import rules
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 DATA_START = "<<<MAIL_DATA"
 DATA_END = "MAIL_DATA>>>"
@@ -40,12 +40,13 @@ _CLASSIFY_SYSTEM = f"""You sort incoming mail for one person. Return a category,
 {_UNTRUSTED}
 
 Importance levels:
-- urgent: the person must see this at once. Use it only for: security or bank alerts (new login, payment problem, fraud warning); a personal mail from a real person that needs an answer; urgent work or customer mail; an appointment or deadline today or tomorrow; a reply from an authority (approval or rejection).
-- important: worth reading today, but not at once (for example an invoice, a delivery, a real person writing without urgency, a job reply).
-- normal: useful information with no need to act.
-- ignore: newsletters, ads, automatic alerts, and anything the person would not miss.
+- urgent: the person must see this at once. Use it only for: security or bank alerts (new login, payment problem, fraud warning); a personal mail from a real person that needs an answer; urgent work or customer mail; an appointment or deadline today or tomorrow; a decision or notice from an authority or office.
+  Authorities are: tax office (Finanzamt), city or district offices (Buergeramt), job center, courts, immigration, pension and health insurance. Every approval, rejection, or decision letter from them is urgent, also when the news is good, and also when it names a deadline to object.
+- important: worth reading today, but not at once (for example an invoice, a delivery notice, a real person writing without urgency, a reply to a job application).
+- normal: information about the person's own accounts and orders with no need to act (welcome mails, account changes, statements).
+- ignore: newsletters, ads, job alerts, "someone viewed your profile", event promotions, and anything the person would not miss.
 
-Mass mail (newsletters, ads, job alerts) is almost never urgent.
+Mass mail (newsletters, ads, job alerts) is never urgent.
 Write the reason in one short sentence."""
 
 _SUMMARIZE_SYSTEM = f"""You summarize one mail for a phone notification.

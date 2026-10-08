@@ -1,7 +1,7 @@
 ## 1. Host setup and smoke test
 
-- [ ] 1.1 Install Ollama on the Windows host, pull one small candidate model, and confirm with `ollama ps` that it runs on the GPU
-- [ ] 1.2 From a throwaway container, call `http://host.docker.internal:11434/api/chat` with a JSON-schema `format` and confirm the answer follows the schema. If the host is not reachable, document the fix (listen address, firewall) in the README
+- [x] 1.1 Install Ollama on the Windows host, pull one small candidate model, and confirm with `ollama ps` that it runs on the GPU
+- [x] 1.2 From a throwaway container, call `http://host.docker.internal:11434/api/chat` with a JSON-schema `format` and confirm the answer follows the schema. If the host is not reachable, document the fix (listen address, firewall) in the README
 
 ## 2. Safe migrations for two containers
 

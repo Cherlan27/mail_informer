@@ -38,6 +38,7 @@ class Report:
     guard_lowered: int = 0
     missed_urgent: list[str] = field(default_factory=list)
     false_urgent: list[str] = field(default_factory=list)
+    wrong_importance: list[tuple[str, str, str]] = field(default_factory=list)  # id, expected, answered
     confusion: Counter = field(default_factory=Counter)  # (expected, predicted) -> count
 
 
@@ -102,11 +103,14 @@ def evaluate(conn: psycopg.Connection, model: ModelClient, labels: list[Label]) 
         except InvalidAnswer:
             report.invalid += 1
             report.confusion[(label.importance, "invalid")] += 1
+            report.wrong_importance.append((label.gmail_id, label.importance, "invalid"))
             if label.importance == "urgent":
                 report.missed_urgent.append(label.gmail_id)
             continue
         report.category_correct += answer.category == label.category
         report.importance_correct += answer.importance == label.importance
+        if answer.importance != label.importance:
+            report.wrong_importance.append((label.gmail_id, label.importance, answer.importance))
         report.confusion[(label.importance, answer.importance)] += 1
         if label.importance == "urgent" and answer.importance != "urgent":
             report.missed_urgent.append(label.gmail_id)
@@ -131,4 +135,8 @@ def format_report(report: Report, model_name: str) -> str:
     ]
     for (expected, answered), count in sorted(report.confusion.items()):
         lines.append(f"  {expected} -> {answered}: {count}")
+    if report.wrong_importance:
+        lines.append("wrong importance (mail: expected -> answered):")
+        for gmail_id, expected, answered in report.wrong_importance:
+            lines.append(f"  {gmail_id}: {expected} -> {answered}")
     return "\n".join(lines)
