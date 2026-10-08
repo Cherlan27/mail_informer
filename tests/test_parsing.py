@@ -69,3 +69,29 @@ def test_parse_message_fields():
     assert mail.from_addr == "a@example.com" and mail.subject == "Betreff"
     assert mail.labels == ["INBOX", "UNREAD"] and mail.body_text == "Body"
     assert mail.internal_date.year == 2023
+
+
+def _raw_with_headers(*headers):
+    return {
+        "id": "m2", "threadId": "t2", "internalDate": "1700000000000",
+        "payload": {
+            **part("text/plain", "Body"),
+            "headers": [{"name": n, "value": v} for n, v in headers],
+        },
+    }
+
+
+def test_mail_with_list_unsubscribe_is_bulk():
+    raw = _raw_with_headers(("From", "news@example.com"),
+                            ("List-Unsubscribe", "<mailto:unsub@example.com>"))
+    assert parse_message(raw).is_bulk is True
+
+
+def test_list_unsubscribe_header_name_is_case_insensitive():
+    raw = _raw_with_headers(("list-unsubscribe", "<https://example.com/u>"))
+    assert parse_message(raw).is_bulk is True
+
+
+def test_mail_without_list_unsubscribe_is_not_bulk():
+    raw = _raw_with_headers(("From", "friend@example.com"), ("Subject", "Hi"))
+    assert parse_message(raw).is_bulk is False

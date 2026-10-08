@@ -34,5 +34,28 @@ services:
       retries: 1
       start_period: 2m
 
+  analyzer:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mail_informer:${POSTGRES_PASSWORD}@postgres:5432/mail_informer
+      RUN_COMMAND: analyze
+      CRONTAB: /app/crontab.analyzer
+      ANALYZER_MODEL: ${ANALYZER_MODEL:?set ANALYZER_MODEL in .env}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    # The model server runs on the host. This also makes the name work on Linux.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # No secrets volume: the analyzer has no Gmail token and cannot reach the mailbox.
+    healthcheck:
+      test: ["CMD", "python", "-m", "mail_informer", "analyzer-health"]
+      interval: 5m
+      timeout: 20s
+      retries: 1
+      start_period: 2m
+
 volumes:
   pgdata:
