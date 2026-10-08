@@ -1,3 +1,5 @@
+import os
+
 from datetime import datetime, timezone
 
 from mail_informer import db
@@ -48,7 +50,7 @@ def test_sync_state_roundtrip_and_last_sync_at(conn):
 
 
 def test_unlock_releases_lock(conn):
-    other = db.connect(conn.info.dsn)
+    other = db.connect(os.environ["TEST_DATABASE_URL"])
     try:
         assert db.try_lock(conn)
         db.unlock(conn)

@@ -15,7 +15,8 @@ COPY mail_informer ./mail_informer
 RUN pip install --no-cache-dir -c constraints.txt .
 
 COPY crontab entrypoint.sh ./
-RUN chmod +x entrypoint.sh \n    && useradd --create-home --uid 1000 app
+RUN chmod +x entrypoint.sh \
+    && useradd --create-home --uid 1000 app
 USER app
 
 ENTRYPOINT ["./entrypoint.sh"]
