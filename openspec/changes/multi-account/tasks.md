@@ -78,10 +78,10 @@
 
 ## 11. Check the real stack
 
-- [ ] 11.1 Back up the database with `pg_dump`. Write `secrets/accounts.toml` with the Gmail account and the three Strato mailboxes. Do not print the file
-- [ ] 11.2 Rebuild and start. Check: migration applied, the Gmail sync point carried over, the three new accounts stored their starting point and imported nothing, healthcheck green
+- [x] 11.1 Back up the database with `pg_dump`. Write `secrets/accounts.toml` with the Gmail account and the three Strato mailboxes. Do not print the file
+- [x] 11.2 Rebuild and start. Check: migration applied, the Gmail sync point carried over, the three new accounts stored their starting point and imported nothing, healthcheck green
 - [ ] 11.3 Send a test mail to each Strato mailbox. Check that it is stored with the right account and that it stays unread on the server
-- [ ] 11.4 Make one account fail (wrong password in a copy of the file). Check that the other accounts still sync, the run returns an error, and the healthcheck turns unhealthy after 15 minutes
+- [x] 11.4 Make one account fail (wrong password in a copy of the file). Check that the other accounts still sync, the run returns an error, and the healthcheck turns unhealthy after 15 minutes
 - [ ] 11.5 Check that a test mail rated `important` reaches the phone with the account name
 
 ## 12. Finish
