@@ -5,31 +5,31 @@
 
 ## 2. Pure rules (`notify/rules.py`)
 
-- [ ] 2.1 Red: tests that sender and summary lose control characters and are cut to their maximum (200 and 500 characters)
-- [ ] 2.2 Green: implement text cleaning and cutting (reuse the analysis helper if it fits)
-- [ ] 2.3 Red: tests that a mail message has exactly the keys `kind`, `category`, `importance`, `sender`, `summary`, and that a digest message has exactly `kind` and `count`
-- [ ] 2.4 Green: implement the message builders
-- [ ] 2.5 Red: tests for the free places: 10 minus sent in the last hour, never below 0, and the split of a list of mails into single messages and the remaining count
-- [ ] 2.6 Green: implement the limit rules and the order (`urgent` first, then newest first)
-- [ ] 2.7 Refactor: check the module has no I/O and no import of `db`
+- [x] 2.1 Red: tests that sender and summary lose control characters and are cut to their maximum (200 and 500 characters)
+- [x] 2.2 Green: implement text cleaning and cutting (reuse the analysis helper if it fits)
+- [x] 2.3 Red: tests that a mail message has exactly the keys `kind`, `category`, `importance`, `sender`, `summary`, and that a digest message has exactly `kind` and `count`
+- [x] 2.4 Green: implement the message builders
+- [x] 2.5 Red: tests for the free places: 10 minus sent in the last hour, never below 0, and the split of a list of mails into single messages and the remaining count
+- [x] 2.6 Green: implement the limit rules and the order (`urgent` first, then newest first)
+- [x] 2.7 Refactor: check the module has no I/O and no import of `db`
 
 ## 3. Configuration
 
-- [ ] 3.1 Red: config tests that `HA_WEBHOOK_URL` is required for `notify`, must start with `http://` or `https://`, and is not needed for the other commands
-- [ ] 3.2 Green: extend `load_config` and fail early with a message that names the setting but not its value
-- [ ] 3.3 Add `HA_WEBHOOK_URL` to `.env.example` with a comment that it is a secret
+- [x] 3.1 Red: config tests that `HA_WEBHOOK_URL` is required for `notify`, must start with `http://` or `https://`, and is not needed for the other commands
+- [x] 3.2 Green: extend `load_config` and fail early with a message that names the setting but not its value
+- [x] 3.3 Add `HA_WEBHOOK_URL` to `.env.example` with a comment that it is a secret
 
 ## 4. Database
 
-- [ ] 4.1 Write migration `004_notifications.sql`: `notifications` (primary key `gmail_id` referencing `messages`, `status` check `sent` or `suppressed`, `importance`, `created_at`) and `notifier_state` (single row, `start_at`, `last_ok_at`)
-- [ ] 4.2 Red: database tests for the constraints: unknown mail rejected, a second row for the same mail rejected, unknown status rejected
-- [ ] 4.3 Green: make the tests pass with the migration
-- [ ] 4.4 Red: tests for "reportable mails": only `done` with `urgent` or `important`, only analyzed at or after `start_at`, not older than 6 hours, not already in `notifications`, and the newest analysis is used when there are two prompt versions
-- [ ] 4.5 Green: implement the selection in `db.py`
-- [ ] 4.6 Red: tests for the other functions: set the start point once (a second call keeps the first value), count `sent` rows of the last hour, record `sent`, record a list as `suppressed` in one transaction, set `last_ok_at`, and an advisory lock with its own key
-- [ ] 4.7 Green: implement these functions in `db.py`
-- [ ] 4.8 Red: test that migrating a database with mails and results keeps all existing rows unchanged
-- [ ] 4.9 Green: fix the migration if the test shows a gap
+- [x] 4.1 Write migration `004_notifications.sql`: `notifications` (primary key `gmail_id` referencing `messages`, `status` check `sent` or `suppressed`, `importance`, `created_at`) and `notifier_state` (single row, `start_at`, `last_ok_at`)
+- [x] 4.2 Red: database tests for the constraints: unknown mail rejected, a second row for the same mail rejected, unknown status rejected
+- [x] 4.3 Green: make the tests pass with the migration
+- [x] 4.4 Red: tests for "reportable mails": only `done` with `urgent` or `important`, only mails first analyzed at or after `start_at` (also not after a re-analysis of an older mail), newest analysis not older than 6 hours, not already in `notifications`, and the newest analysis is used when there are two prompt versions
+- [x] 4.5 Green: implement the selection in `db.py`
+- [x] 4.6 Red: tests for the other functions: set the start point once (a second call keeps the first value), count `sent` rows of the last hour, record `sent`, record a list as `suppressed` in one transaction, set `last_ok_at`, and an advisory lock with its own key
+- [x] 4.7 Green: implement these functions in `db.py`
+- [x] 4.8 Red: test that migrating a database with mails and results keeps all existing rows unchanged
+- [x] 4.9 Green: fix the migration if the test shows a gap
 
 ## 5. Client (`notify/client.py`)
 

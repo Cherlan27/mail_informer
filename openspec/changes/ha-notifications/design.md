@@ -51,7 +51,7 @@ Two kinds, both JSON with a `kind` field:
 - Why no subject: it is free text from the mail and could carry anything. The summary is already a short German text. This also keeps mail content out of the Home Assistant history.
 
 ### 4. Selection, ordering, and "once"
-A reportable mail is the newest `done` analysis of a mail with importance `urgent` or `important`, where `updated_at` is at or after `notifier_state.start_at` and not older than 6 hours, and where the mail has no row in `notifications`.
+A reportable mail is the newest `done` analysis of a mail with importance `urgent` or `important`, where the first `done` analysis of the mail is at or after `notifier_state.start_at` and the newest one is not older than 6 hours, and where the mail has no row in `notifications`.
 
 - Order: `urgent` first, then newest first. Under the limit the most important mails go out as single messages.
 - `notifications(gmail_id PRIMARY KEY → messages, status, importance, created_at)` has one row per mail, not per prompt version. This is what makes a re-analysis harmless. `status` is `sent` (single message) or `suppressed` (covered by a collective message).

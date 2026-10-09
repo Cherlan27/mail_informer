@@ -72,7 +72,7 @@ def test_analyze_returns_1_without_a_model_name(env, monkeypatch):
 
 
 def test_analyze_applies_migrations_itself(env, monkeypatch):
-    env.execute("DROP TABLE IF EXISTS analyses, analyzer_state, messages, sync_state, schema_migrations")
+    env.execute("DROP TABLE IF EXISTS notifications, notifier_state, analyses, analyzer_state, messages, sync_state, schema_migrations")
     use_model(monkeypatch, StubModel())
     assert cli.main(["analyze"]) == 0
     assert env.execute("SELECT count(*) FROM analyses").fetchone()[0] == 0

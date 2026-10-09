@@ -92,7 +92,7 @@ def test_migrate_waits_while_another_connection_holds_the_migration_lock(conn):
 
 def test_concurrent_migrations_apply_each_file_once(conn):
     url = os.environ["TEST_DATABASE_URL"]
-    conn.execute("DROP TABLE IF EXISTS analyses, analyzer_state, messages, sync_state, schema_migrations")
+    conn.execute("DROP TABLE IF EXISTS notifications, notifier_state, analyses, analyzer_state, messages, sync_state, schema_migrations")
     errors = []
 
     def run():

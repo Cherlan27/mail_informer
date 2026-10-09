@@ -46,3 +46,31 @@ def test_analyzer_settings_from_environment(monkeypatch):
     monkeypatch.setenv("OLLAMA_URL", "http://localhost:11434")
     cfg = load_config(require_model=True)
     assert (cfg.analyzer_model, cfg.ollama_url) == ("some-model", "http://localhost:11434")
+
+
+def test_notifier_requires_a_webhook_address(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("HA_WEBHOOK_URL", raising=False)
+    with pytest.raises(RuntimeError, match="HA_WEBHOOK_URL"):
+        load_config(require_webhook=True)
+
+
+def test_webhook_address_must_be_an_http_address(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.setenv("HA_WEBHOOK_URL", "ftp://secret-id")
+    with pytest.raises(RuntimeError) as error:
+        load_config(require_webhook=True)
+    assert "HA_WEBHOOK_URL" in str(error.value)
+    assert "secret-id" not in str(error.value)
+
+
+def test_webhook_address_is_not_required_for_other_commands(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("HA_WEBHOOK_URL", raising=False)
+    assert load_config().ha_webhook_url == ""
+
+
+def test_webhook_address_is_read_from_the_environment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.setenv("HA_WEBHOOK_URL", "http://homeassistant:8123/api/webhook/abc")
+    assert load_config(require_webhook=True).ha_webhook_url.endswith("/abc")

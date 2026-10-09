@@ -46,7 +46,7 @@ The system SHALL report a mail at most once. It SHALL record a reported mail in 
 - **THEN** no second message is sent for it
 
 ### Requirement: Start point
-The system SHALL report only mails whose analysis finished after the notifier first ran. Mails analyzed before that SHALL NOT be reported.
+The system SHALL report only mails whose first finished analysis came after the notifier first ran. Mails first analyzed before that SHALL NOT be reported, also not after a new analysis.
 
 #### Scenario: First start with an existing archive
 - **WHEN** the notifier runs for the first time and the archive holds analyzed `important` mails
@@ -55,6 +55,10 @@ The system SHALL report only mails whose analysis finished after the notifier fi
 #### Scenario: Mail analyzed after the start
 - **WHEN** a mail is analyzed after the notifier first ran and is rated `important`
 - **THEN** it is reported
+
+#### Scenario: Old mail analyzed again
+- **WHEN** a mail that was first analyzed before the notifier first ran is analyzed again, for example with a new prompt version, and is rated `important`
+- **THEN** it is not reported
 
 ### Requirement: Hourly limit
 The system SHALL send at most 10 single messages in any hour. If more mails are ready, it SHALL send one collective message with the number of the remaining mails, and it SHALL NOT report those mails again.
