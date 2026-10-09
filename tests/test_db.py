@@ -36,21 +36,6 @@ def test_existing_ids(conn):
     assert db.existing_ids(conn, []) == set()
 
 
-def test_latest_mail_date(conn):
-    assert db.latest_mail_date(conn) is None
-    db.insert_mails(conn, [mail("a", ts=1_700_000_000), mail("b", ts=1_700_001_000)])
-    assert db.latest_mail_date(conn).timestamp() == 1_700_001_000
-
-
-def test_sync_state_roundtrip_and_last_sync_at(conn):
-    assert db.get_sync_state(conn) is None
-    assert db.last_sync_at(conn) is None
-    db.set_sync_state(conn, "1")
-    db.set_sync_state(conn, "2")
-    assert db.get_sync_state(conn)[0] == "2"
-    assert db.last_sync_at(conn) is not None
-
-
 def test_unlock_releases_lock(conn):
     other = db.connect(os.environ["TEST_DATABASE_URL"])
     try:

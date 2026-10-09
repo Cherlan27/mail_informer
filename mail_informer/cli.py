@@ -7,13 +7,15 @@ from .analysis.analyzer import MAX_ATTEMPTS, run_analysis
 from .analysis.evaluate import evaluate, format_report, load_labels
 from .analysis.model import ModelUnavailable, OllamaClient
 from .analysis.prompts import PROMPT_VERSION
+from .accounts import Account, load_accounts
 from .auth import authorize
 from .config import load_config
 from .gmail import GmailClient
+from .imap import ImapClient
 from .notify import rules as notify_rules
 from .notify.client import HaWebhookClient, NotifierUnavailable
 from .notify.notifier import run_notification
-from .sync import run_sync
+from .sync import MailSource, run_sync
 
 log = logging.getLogger("mail_informer")
 
@@ -25,26 +27,66 @@ MAX_ANALYZER_AGE = timedelta(minutes=30)
 MAX_NOTIFIER_AGE = timedelta(minutes=30)
 
 
+def _open_source(account: Account) -> MailSource:
+    """Opens the mailbox of an account."""
+    if account.kind == "gmail":
+        return GmailClient.from_token(account.token_path)
+    return ImapClient.connect(account)
+
+
+def _warn_if_gmail_state_has_no_account(conn, accounts: list[Account]) -> None:
+    # The upgrade stores the old Gmail sync point under the name "gmail". A file that
+    # names that account differently starts it again from now and skips the gap.
+    if db.get_cursor(conn, "gmail") and all(a.name != "gmail" for a in accounts):
+        log.warning("A sync point for the account 'gmail' exists, but the accounts file has "
+                    "no account with that name. If you renamed it, mails that arrived since "
+                    "the last run are skipped.")
+
+
+def _sync_account(conn, account: Account) -> bool:
+    """Syncs one account. Returns False if it failed. The error is logged."""
+    source = None
+    try:
+        source = _open_source(account)
+        run_sync(conn, account.name, source)
+        return True
+    except Exception:
+        log.exception("%s: sync failed", account.name)
+        return False
+    finally:
+        close = getattr(source, "close", None)
+        if close:
+            close()
+
+
 def _run(cfg) -> int:
-    """Runs one sync, unless another run holds the lock."""
+    """Runs one sync of every account, unless another run holds the lock.
+
+    A failing account does not stop the others. Returns 1 if any account failed.
+    """
+    accounts = load_accounts(cfg.accounts_path)
     with db.connect(cfg.database_url) as conn:
         if not db.try_lock(conn):
             log.info("Another run is active, exiting")
             return 0
         try:
             db.migrate(conn)
-            run_sync(conn, GmailClient.from_token(cfg.token_path))
+            for account in accounts:
+                db.register_account(conn, account.name)
+            _warn_if_gmail_state_has_no_account(conn, accounts)
+            results = [_sync_account(conn, account) for account in accounts]
         finally:
             db.unlock(conn)
-    return 0
+    return 0 if all(results) else 1
 
 
 def _health(cfg) -> int:
-    """Returns 1 if the last successful sync is too old, else 0."""
+    """Returns 1 if any account has no successful sync for too long, else 0."""
+    accounts = load_accounts(cfg.accounts_path)
     with db.connect(cfg.database_url) as conn:
-        last = db.last_sync_at(conn)
+        last = db.oldest_sync_at(conn, [a.name for a in accounts])
     if last is None or datetime.now(timezone.utc) - last > MAX_SYNC_AGE:
-        log.error("Last successful sync: %s", last)
+        log.error("Oldest successful sync of an account: %s", last)
         return 1
     return 0
 

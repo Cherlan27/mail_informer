@@ -23,12 +23,12 @@
 
 ## 4. Database and migration
 
-- [ ] 4.1 Write migration `005_accounts.sql` as in the design (`messages.account`, `sync_state` per account with a nullable `cursor`)
-- [ ] 4.2 Red: migration test that starts from the schema of `004` with a mail, an analysis, a notification, and a sync row, then migrates: all rows stay, the mail has the account `gmail`, the sync row is `gmail` with the old history ID as the cursor
-- [ ] 4.3 Green: fix the migration until the test passes
-- [ ] 4.4 Red: tests for the per-account functions: register an account (no overwrite of an existing row), get and set the cursor, `updated_at` moves only on `set`, newest mail date of one account, `existing_ids`, and the oldest `updated_at` among a list of accounts
-- [ ] 4.5 Green: implement them in `db.py` and make `insert_mails` store the account
-- [ ] 4.6 Update the existing tests and the DROP TABLE lists in `conftest.py` for the new schema
+- [x] 4.1 Write migration `005_accounts.sql` as in the design (`messages.account`, `sync_state` per account with a nullable `cursor`)
+- [x] 4.2 Red: migration test that starts from the schema of `004` with a mail, an analysis, a notification, and a sync row, then migrates: all rows stay, the mail has the account `gmail`, the sync row is `gmail` with the old history ID as the cursor
+- [x] 4.3 Green: fix the migration until the test passes
+- [x] 4.4 Red: tests for the per-account functions: register an account (no overwrite of an existing row), get and set the cursor, `updated_at` moves only on `set`, newest mail date of one account, `existing_ids`, and the oldest `updated_at` among a list of accounts
+- [x] 4.5 Green: implement them in `db.py` and make `insert_mails` store the account
+- [x] 4.6 Update the existing tests and the DROP TABLE lists in `conftest.py` for the new schema
 
 ## 5. Sync loop (`sync.py`)
 
@@ -40,26 +40,26 @@
 
 ## 6. IMAP client (`imap.py`)
 
-- [ ] 6.1 Red: tests with a fake IMAP connection: start cursor is `<validity>:<UIDNEXT-1>`, fetch returns only UIDs above the cursor, the "newest old mail" answer of `n:*` is dropped, the cursor is the highest UID returned, the mailbox is selected read-only, and the fetch uses `BODY.PEEK[]`
-- [ ] 6.2 Green: implement `ImapClient` with batches of 20 UIDs
-- [ ] 6.3 Red: tests that a changed UID validity triggers the date based reload (`SINCE` with the date one day before, English month name independent of the locale), and that the new cursor uses the new validity
-- [ ] 6.4 Green: implement the reset path
-- [ ] 6.5 Red: tests for the connection: TLS context with certificate check is used, a timeout is set, a refused login raises an error that names no password
-- [ ] 6.6 Green: implement the connection and the error type
+- [x] 6.1 Red: tests with a fake IMAP connection: start cursor is `<validity>:<UIDNEXT-1>`, fetch returns only UIDs above the cursor, the "newest old mail" answer of `n:*` is dropped, the cursor is the highest UID returned, the mailbox is selected read-only, and the fetch uses `BODY.PEEK[]`
+- [x] 6.2 Green: implement `ImapClient` with batches of 20 UIDs
+- [x] 6.3 Red: tests that a changed UID validity triggers the date based reload (`SINCE` with the date one day before, English month name independent of the locale), and that the new cursor uses the new validity
+- [x] 6.4 Green: implement the reset path
+- [x] 6.5 Red: tests for the connection: TLS context with certificate check is used, a timeout is set, a refused login raises an error that names no password
+- [x] 6.6 Green: implement the connection and the error type
 
 ## 7. Run with several accounts (`cli.py`)
 
-- [ ] 7.1 Red: tests that `_run` registers every account, syncs all of them, continues after a failing account, returns 1 when any failed, and logs the account name but never a password
-- [ ] 7.2 Green: implement the loop with one commit or rollback per account
-- [ ] 7.3 Red: test that an account removed from the file is not synced and its mails stay
-- [ ] 7.4 Green: make it pass (the loop reads only the file)
-- [ ] 7.5 Red: test for the warning when a `gmail` sync row exists but no account with that name is in the file
-- [ ] 7.6 Green: implement the warning
+- [x] 7.1 Red: tests that `_run` registers every account, syncs all of them, continues after a failing account, returns 1 when any failed, and logs the account name but never a password
+- [x] 7.2 Green: implement the loop with one commit or rollback per account
+- [x] 7.3 Red: test that an account removed from the file is not synced and its mails stay
+- [x] 7.4 Green: make it pass (the loop reads only the file)
+- [x] 7.5 Red: test for the warning when a `gmail` sync row exists but no account with that name is in the file
+- [x] 7.6 Green: implement the warning
 
 ## 8. Health
 
-- [ ] 8.1 Red: tests that `health` is 0 when all accounts synced in the last 15 minutes and 1 when one account is older, when an account has never succeeded, and that rows of removed accounts are ignored
-- [ ] 8.2 Green: implement it with the accounts file and the oldest `updated_at`
+- [x] 8.1 Red: tests that `health` is 0 when all accounts synced in the last 15 minutes and 1 when one account is older, when an account has never succeeded, and that rows of removed accounts are ignored
+- [x] 8.2 Green: implement it with the accounts file and the oldest `updated_at`
 
 ## 9. Account in the message
 
