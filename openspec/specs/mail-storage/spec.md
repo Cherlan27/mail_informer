@@ -46,6 +46,7 @@ The system SHALL keep the analysis state of a mail in the analysis results, not 
 #### Scenario: Mail after analysis
 - **WHEN** a mail has been analyzed
 - **THEN** its archived fields are the same as at import
+
 ### Requirement: Persistent sync state
 The system SHALL store the sync point in the database so that it survives container restarts.
 

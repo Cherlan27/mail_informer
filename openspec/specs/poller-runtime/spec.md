@@ -14,6 +14,7 @@ The system SHALL start Postgres, the poller, and the analyzer with a single `doc
 #### Scenario: Model server not running yet
 - **WHEN** the stack starts while the model server is off
 - **THEN** the poller works as usual and the analyzer waits and tries again later
+
 ### Requirement: Periodic execution
 The system SHALL start the fetch every 30 minutes as a separate run that ends when it is done.
 
