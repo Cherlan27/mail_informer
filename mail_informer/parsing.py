@@ -1,7 +1,10 @@
 import base64
+import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from email import message_from_bytes, policy
+from email.message import EmailMessage
 
 import html2text
 
@@ -102,4 +105,88 @@ def parse_message(raw: dict) -> Mail:
         snippet=raw.get("snippet"),
         body_text=extract_body_text(payload),
         is_bulk="list-unsubscribe" in headers,
+    )
+
+
+SNIPPET_CHARS = 200
+_ANGLE_ID = re.compile(r"<([^<>\s]+)>")
+
+
+def _part_text(part: EmailMessage) -> str:
+    try:
+        return part.get_content()
+    except (LookupError, UnicodeDecodeError):
+        # Unknown charset: keep the mail and replace what cannot be read.
+        payload = part.get_payload(decode=True) or b""
+        return payload.decode("utf-8", errors="replace")
+
+
+def _raw_body_text(msg: EmailMessage) -> str:
+    plain: list[str] = []
+    html: list[str] = []
+    for part in msg.walk():
+        if (part.is_multipart() or part.get_content_disposition() == "attachment"
+                or part.get_filename()):
+            continue
+        kind = part.get_content_type()
+        if kind == "text/plain":
+            plain.append(_part_text(part))
+        elif kind == "text/html":
+            html.append(_part_text(part))
+    text = "\n\n".join(p.strip() for p in plain if p.strip())
+    if text:
+        return text
+    return "\n\n".join(t for t in (_html_to_text(h) for h in html) if t)
+
+
+def _header(msg: EmailMessage, name: str) -> str | None:
+    value = msg[name]
+    return None if value is None else str(value)
+
+
+def _first_id(value: str | None) -> str | None:
+    match = _ANGLE_ID.search(value or "")
+    return match.group(1) if match else None
+
+
+def parse_raw_message(raw: bytes, received: datetime, account: str) -> Mail:
+    """Converts a raw RFC 822 mail (for example from IMAP) into a ``Mail``.
+
+    The key is built from the ``Message-ID`` header and the account name, not from
+    the IMAP UID, so a UID reset cannot store the same mail twice. A mail without
+    that header gets a key from a hash of its main fields.
+
+    Args:
+        raw: The whole mail as bytes.
+        received: The time the server received the mail. The ``Date`` header is not
+            used because the sender controls it.
+        account: The account name. It is the prefix of the key.
+
+    Returns:
+        The parsed mail.
+    """
+    msg = message_from_bytes(raw, policy=policy.default)
+    body = _raw_body_text(msg)
+    subject = _header(msg, "Subject")
+    sender = _header(msg, "From")
+
+    message_id = _first_id(_header(msg, "Message-ID"))
+    if message_id is None:
+        basis = "\n".join([sender or "", _header(msg, "Date") or "", subject or "",
+                           body[:SNIPPET_CHARS]])
+        message_id = hashlib.sha256(basis.encode("utf-8", errors="replace")).hexdigest()
+    key = f"{account}:{message_id}"
+
+    parent = _first_id(_header(msg, "References")) or _first_id(_header(msg, "In-Reply-To"))
+    return Mail(
+        gmail_id=key,
+        thread_id=f"{account}:{parent}" if parent else key,
+        internal_date=received,
+        from_addr=sender,
+        to_addrs=_header(msg, "To"),
+        subject=subject,
+        labels=["INBOX"],
+        snippet=" ".join(body.split())[:SNIPPET_CHARS],
+        body_text=body,
+        is_bulk=msg["List-Unsubscribe"] is not None,
     )

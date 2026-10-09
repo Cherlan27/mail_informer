@@ -4,22 +4,22 @@
 
 ## 2. Accounts file (`accounts.py`)
 
-- [ ] 2.1 Red: tests for a valid file with one Gmail and three IMAP accounts (names, kinds, host, user, relative token path resolved against the folder of the file, default port 993)
-- [ ] 2.2 Green: implement the loader with `tomllib` and frozen dataclasses. The password is excluded from `repr`
-- [ ] 2.3 Red: tests for the failures: missing file (message names the expected path), duplicate name, name with a colon or capital letter, unknown kind, missing value. Also a test that no message contains a password
-- [ ] 2.4 Green: implement the checks with messages that name the account and the key only
-- [ ] 2.5 Red: config test that `ACCOUNTS_PATH` defaults to `secrets/accounts.toml` and can be changed
-- [ ] 2.6 Green: extend `load_config`. `TOKEN_PATH` and `CLIENT_SECRET_PATH` stay for `authorize`
+- [x] 2.1 Red: tests for a valid file with one Gmail and three IMAP accounts (names, kinds, host, user, relative token path resolved against the folder of the file, default port 993)
+- [x] 2.2 Green: implement the loader with `tomllib` and frozen dataclasses. The password is excluded from `repr`
+- [x] 2.3 Red: tests for the failures: missing file (message names the expected path), duplicate name, name with a colon or capital letter, unknown kind, missing value. Also a test that no message contains a password
+- [x] 2.4 Green: implement the checks with messages that name the account and the key only
+- [x] 2.5 Red: config test that `ACCOUNTS_PATH` defaults to `secrets/accounts.toml` and can be changed
+- [x] 2.6 Green: extend `load_config`. `TOKEN_PATH` and `CLIENT_SECRET_PATH` stay for `authorize`
 
 ## 3. Parsing raw mails (`parsing.py`)
 
-- [ ] 3.1 Red: tests for a raw mail: plain text body, HTML-only body converted to text, attachment ignored, no text part gives an empty body, encoded subject and sender decoded, `List-Unsubscribe` sets the bulk flag, unknown charset does not fail
-- [ ] 3.2 Green: implement `parse_raw_message(raw: bytes, received: datetime, account: str)` as a pure function
-- [ ] 3.3 Red: tests for the key: from the Message-ID with the account prefix, the same Message-ID in two accounts gives two keys, a missing Message-ID gives a stable hash key that is the same on a second call
-- [ ] 3.4 Green: implement the key
-- [ ] 3.5 Red: tests for `thread_id` (first `References` entry, else `In-Reply-To`, else the own key), the label `INBOX`, and the snippet (200 characters, whitespace collapsed)
-- [ ] 3.6 Green: implement them
-- [ ] 3.7 Refactor: share the HTML conversion with the Gmail path. Check the module has no I/O
+- [x] 3.1 Red: tests for a raw mail: plain text body, HTML-only body converted to text, attachment ignored, no text part gives an empty body, encoded subject and sender decoded, `List-Unsubscribe` sets the bulk flag, unknown charset does not fail
+- [x] 3.2 Green: implement `parse_raw_message(raw: bytes, received: datetime, account: str)` as a pure function
+- [x] 3.3 Red: tests for the key: from the Message-ID with the account prefix, the same Message-ID in two accounts gives two keys, a missing Message-ID gives a stable hash key that is the same on a second call
+- [x] 3.4 Green: implement the key
+- [x] 3.5 Red: tests for `thread_id` (first `References` entry, else `In-Reply-To`, else the own key), the label `INBOX`, and the snippet (200 characters, whitespace collapsed)
+- [x] 3.6 Green: implement them
+- [x] 3.7 Refactor: share the HTML conversion with the Gmail path. Check the module has no I/O
 
 ## 4. Database and migration
 
