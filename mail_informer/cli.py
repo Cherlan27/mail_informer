@@ -10,6 +10,9 @@ from .analysis.prompts import PROMPT_VERSION
 from .auth import authorize
 from .config import load_config
 from .gmail import GmailClient
+from .notify import rules as notify_rules
+from .notify.client import HaWebhookClient, NotifierUnavailable
+from .notify.notifier import run_notification
 from .sync import run_sync
 
 log = logging.getLogger("mail_informer")
@@ -18,6 +21,8 @@ log = logging.getLogger("mail_informer")
 MAX_SYNC_AGE = timedelta(minutes=90)
 # The analyzer runs every 5 minutes. After 30 minutes without a pass, it counts as stuck.
 MAX_ANALYZER_AGE = timedelta(minutes=30)
+# The notifier runs every 5 minutes. After 30 minutes without a pass, it counts as stuck.
+MAX_NOTIFIER_AGE = timedelta(minutes=30)
 
 
 def _run(cfg) -> int:
@@ -68,6 +73,30 @@ def _analyzer_health(cfg) -> int:
     return 0
 
 
+def _notify(cfg) -> int:
+    """Runs one notifier pass. Returns 1 if Home Assistant is unavailable."""
+    notifier = HaWebhookClient(cfg.ha_webhook_url)
+    with db.connect(cfg.database_url) as conn:
+        db.migrate(conn)
+        try:
+            run_notification(conn, notifier)
+        except NotifierUnavailable as e:
+            log.error("Home Assistant unavailable: %s", e)
+            return 1
+    return 0
+
+
+def _notifier_health(cfg) -> int:
+    """Returns 1 if mails wait to be reported and no pass succeeded recently, else 0."""
+    with db.connect(cfg.database_url) as conn:
+        waiting = db.count_reportable(conn, notify_rules.MAX_AGE_HOURS)
+        last = db.last_notifier_ok(conn)
+    if waiting and (last is None or datetime.now(timezone.utc) - last > MAX_NOTIFIER_AGE):
+        log.error("%d mails wait to be reported. Last successful pass: %s", waiting, last)
+        return 1
+    return 0
+
+
 def _evaluate(cfg, labels_path: str, model_name: str | None) -> int:
     """Compares a model with hand-made labels and prints the report."""
     name = model_name or cfg.analyzer_model
@@ -91,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(prog="mail_informer")
-    parser.add_argument("command", choices=["auth", "run", "health", "analyze", "analyzer-health", "evaluate"])
+    parser.add_argument("command", choices=["auth", "run", "health", "analyze", "analyzer-health", "evaluate", "notify", "notifier-health"])
     parser.add_argument("--labels", default="eval/labels.jsonl",
                         help="label file for the evaluate command")
     parser.add_argument("--model", help="model name for the evaluate command")
@@ -100,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = load_config(
             require_database=args.command != "auth",
             require_model=args.command == "analyze",
+            require_webhook=args.command == "notify",
         )
         if args.command == "auth":
             authorize(cfg.client_secret_path, cfg.token_path)
@@ -111,6 +141,10 @@ def main(argv: list[str] | None = None) -> int:
             return _analyze(cfg)
         if args.command == "analyzer-health":
             return _analyzer_health(cfg)
+        if args.command == "notify":
+            return _notify(cfg)
+        if args.command == "notifier-health":
+            return _notifier_health(cfg)
         if args.command == "evaluate":
             return _evaluate(cfg, args.labels, args.model)
         return _run(cfg)

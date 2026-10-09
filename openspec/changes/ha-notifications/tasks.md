@@ -33,40 +33,40 @@
 
 ## 5. Client (`notify/client.py`)
 
-- [ ] 5.1 Red: tests against a small local fake HTTP server: valid post, error status, connection refused, and timeout. Also a test that the error text does not contain the address
-- [ ] 5.2 Green: implement the `Notifier` protocol, `HaWebhookClient` on `urllib`, and `NotifierUnavailable`
+- [x] 5.1 Red: tests against a small local fake HTTP server: valid post, error status, connection refused, and timeout. Also a test that the error text does not contain the address
+- [x] 5.2 Green: implement the `Notifier` protocol, `HaWebhookClient` on `urllib`, and `NotifierUnavailable`
 
 ## 6. Pass (`notify/notifier.py`)
 
-- [ ] 6.1 Red: tests with a fake notifier for the happy path: an `urgent` and an `important` mail are sent as single messages, a `normal` mail is not sent, and each sent mail is recorded
-- [ ] 6.2 Green: implement the pass (select, send, record, one transaction per mail)
-- [ ] 6.3 Red: tests that a second pass sends nothing again, and that a re-analysis with a new prompt version sends nothing again
-- [ ] 6.4 Green: make them pass without new code, or fix the selection
-- [ ] 6.5 Red: tests for the start point: on the first pass `start_at` is set, and a mail analyzed before it is not sent
-- [ ] 6.6 Green: set the start point at the beginning of a pass
-- [ ] 6.7 Red: tests for the limit: 25 ready mails give 10 single messages and one digest with 15, and the 15 are recorded as `suppressed`; with 10 already sent in the last hour one ready mail gives only a digest with 1; a failed digest records nothing
-- [ ] 6.8 Green: implement the limit and the digest
-- [ ] 6.9 Red: tests that a mail older than 6 hours is not sent
-- [ ] 6.10 Green: apply the age limit in the selection
-- [ ] 6.11 Red: tests that `NotifierUnavailable` ends the pass with an error, records nothing for that message, and that the same mail is sent in the next pass
-- [ ] 6.12 Green: implement the unavailable path
-- [ ] 6.13 Red: tests that a summary with instructions in it is sent as plain text and causes nothing else, and that the log has no address and no mail text
-- [ ] 6.14 Green: make them pass, and check the log calls
-- [ ] 6.15 Red: tests that a second pass cannot run while the first holds the notifier lock
-- [ ] 6.16 Green: add the notifier lock
-- [ ] 6.17 Refactor: make sure the pass depends only on the `Notifier` protocol and on `db`
+- [x] 6.1 Red: tests with a fake notifier for the happy path: an `urgent` and an `important` mail are sent as single messages, a `normal` mail is not sent, and each sent mail is recorded
+- [x] 6.2 Green: implement the pass (select, send, record, one transaction per mail)
+- [x] 6.3 Red: tests that a second pass sends nothing again, and that a re-analysis with a new prompt version sends nothing again
+- [x] 6.4 Green: make them pass without new code, or fix the selection
+- [x] 6.5 Red: tests for the start point: on the first pass `start_at` is set, and a mail analyzed before it is not sent
+- [x] 6.6 Green: set the start point at the beginning of a pass
+- [x] 6.7 Red: tests for the limit: 25 ready mails give 10 single messages and one digest with 15, and the 15 are recorded as `suppressed`; with 10 already sent in the last hour one ready mail gives only a digest with 1; a failed digest records nothing
+- [x] 6.8 Green: implement the limit and the digest
+- [x] 6.9 Red: tests that a mail older than 6 hours is not sent
+- [x] 6.10 Green: apply the age limit in the selection
+- [x] 6.11 Red: tests that `NotifierUnavailable` ends the pass with an error, records nothing for that message, and that the same mail is sent in the next pass
+- [x] 6.12 Green: implement the unavailable path
+- [x] 6.13 Red: tests that a summary with instructions in it is sent as plain text and causes nothing else, and that the log has no address and no mail text
+- [x] 6.14 Green: make them pass, and check the log calls
+- [x] 6.15 Red: tests that a second pass cannot run while the first holds the notifier lock
+- [x] 6.16 Green: add the notifier lock
+- [x] 6.17 Refactor: make sure the pass depends only on the `Notifier` protocol and on `db`
 
 ## 7. Commands and health
 
-- [ ] 7.1 Red: CLI tests that `notify` returns 0 on success and 1 on `NotifierUnavailable`, and that it does not need Gmail or model settings
-- [ ] 7.2 Green: add the `notify` command to `cli.py`
-- [ ] 7.3 Red: tests for `notifier-health`: healthy with no work, healthy with work and a recent `last_ok_at`, unhealthy with work and an old or missing `last_ok_at`, and healthy when the only waiting mails are older than 6 hours
-- [ ] 7.4 Green: implement `notifier-health` and set `last_ok_at` after every pass without error (also when there was no work)
+- [x] 7.1 Red: CLI tests that `notify` returns 0 on success and 1 on `NotifierUnavailable`, and that it does not need Gmail or model settings
+- [x] 7.2 Green: add the `notify` command to `cli.py`
+- [x] 7.3 Red: tests for `notifier-health`: healthy with no work, healthy with work and a recent `last_ok_at`, unhealthy with work and an old or missing `last_ok_at`, and healthy when the only waiting mails are older than 6 hours
+- [x] 7.4 Green: implement `notifier-health` and set `last_ok_at` after every pass without error (also when there was no work)
 
 ## 8. Compose
 
-- [ ] 8.1 Add `crontab.notifier` (every 5 minutes) and the `notifier` service to `docker-compose.yml`: same image, `RUN_COMMAND: notify`, no `secrets/` volume, `depends_on` Postgres healthy, `HA_WEBHOOK_URL` required from `.env`, non-root user, healthcheck with `notifier-health`
-- [ ] 8.2 Make sure `.env` is git-ignored and Docker-ignored, and that the address is not printed by `docker compose config` in any file in the repo
+- [x] 8.1 Add `crontab.notifier` (every 5 minutes) and the `notifier` service to `docker-compose.yml`: same image, `RUN_COMMAND: notify`, no `secrets/` volume, `depends_on` Postgres healthy, `HA_WEBHOOK_URL` required from `.env`, non-root user, healthcheck with `notifier-health`
+- [x] 8.2 Make sure `.env` is git-ignored and Docker-ignored, and that the address is not printed by `docker compose config` in any file in the repo
 
 ## 9. Check in the real stack
 

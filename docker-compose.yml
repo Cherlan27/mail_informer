@@ -57,5 +57,25 @@ services:
       retries: 1
       start_period: 2m
 
+  notifier:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mail_informer:${POSTGRES_PASSWORD}@postgres:5432/mail_informer
+      RUN_COMMAND: notify
+      CRONTAB: /app/crontab.notifier
+      # The address holds a secret id. Keep it in .env.
+      HA_WEBHOOK_URL: ${HA_WEBHOOK_URL:?set HA_WEBHOOK_URL in .env}
+    # No secrets volume and no model server: the notifier cannot reach Gmail or the model.
+    healthcheck:
+      test: ["CMD", "python", "-m", "mail_informer", "notifier-health"]
+      interval: 5m
+      timeout: 20s
+      retries: 1
+      start_period: 2m
+
 volumes:
   pgdata:
