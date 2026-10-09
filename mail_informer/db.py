@@ -17,9 +17,21 @@ class PendingMail(NamedTuple):
     is_bulk: bool | None
 
 
+class ReportableMail(NamedTuple):
+    """An analyzed mail that may be reported to the phone."""
+
+    gmail_id: str
+    category: str
+    importance: str
+    sender: str | None
+    summary: str
+    analyzed_at: datetime
+
+
 LOCK_KEY = 726_001  # Advisory lock key that prevents parallel runs
 MIGRATION_LOCK_KEY = 726_002  # Advisory lock key that serializes migrations
 ANALYZER_LOCK_KEY = 726_003  # Advisory lock key that prevents parallel analyzer passes
+NOTIFIER_LOCK_KEY = 726_004  # Advisory lock key that prevents parallel notifier passes
 
 
 def connect(database_url: str) -> psycopg.Connection:
@@ -208,4 +220,112 @@ def touch_analyzer_ok(conn: psycopg.Connection) -> None:
 def last_analyzer_ok(conn: psycopg.Connection) -> datetime | None:
     """Returns the time of the last successful analyzer pass, or None before the first one."""
     row = conn.execute("SELECT last_ok_at FROM analyzer_state WHERE id = 1").fetchone()
+    return row[0] if row else None
+
+
+# The first finished analysis of a mail decides whether it is new. The newest one is
+# used for the rating and the summary. Re-analyzing an old mail must not report it.
+_REPORTABLE = """FROM (
+        SELECT DISTINCT ON (gmail_id) gmail_id, category, importance, summary, updated_at,
+               min(updated_at) OVER (PARTITION BY gmail_id) AS first_done_at
+        FROM analyses WHERE status = 'done'
+        ORDER BY gmail_id, updated_at DESC
+    ) l
+    JOIN messages m USING (gmail_id)
+    WHERE l.importance IN ('important', 'urgent')
+      AND l.first_done_at >= %(start)s
+      AND l.updated_at > now() - make_interval(hours => %(hours)s)
+      AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.gmail_id = l.gmail_id)"""
+
+
+def try_notifier_lock(conn: psycopg.Connection) -> bool:
+    """Tries to take the notifier lock without waiting. Returns True if it got the lock."""
+    return conn.execute("SELECT pg_try_advisory_lock(%s)", (NOTIFIER_LOCK_KEY,)).fetchone()[0]
+
+
+def notifier_unlock(conn: psycopg.Connection) -> None:
+    """Releases the notifier lock."""
+    conn.execute("SELECT pg_advisory_unlock(%s)", (NOTIFIER_LOCK_KEY,))
+
+
+def notifier_start(conn: psycopg.Connection) -> datetime | None:
+    """Returns the start point of the notifier, or None before its first pass."""
+    row = conn.execute("SELECT start_at FROM notifier_state WHERE id = 1").fetchone()
+    return row[0] if row else None
+
+
+def set_notifier_start(conn: psycopg.Connection) -> datetime:
+    """Sets the start point to now if there is none yet. Returns the stored start point."""
+    return conn.execute(
+        """INSERT INTO notifier_state (id, start_at) VALUES (1, now())
+           ON CONFLICT (id) DO UPDATE SET start_at = notifier_state.start_at
+           RETURNING start_at"""
+    ).fetchone()[0]
+
+
+def pick_reportable(
+    conn: psycopg.Connection, start_at: datetime, max_age_hours: int
+) -> list[ReportableMail]:
+    """Returns analyzed mails that should be reported and are not recorded yet."""
+    rows = conn.execute(
+        f"""SELECT l.gmail_id, l.category, l.importance, m.from_addr, l.summary, l.updated_at
+            {_REPORTABLE}""",
+        {"start": start_at, "hours": max_age_hours},
+    )
+    return [ReportableMail(*r) for r in rows]
+
+
+def count_reportable(conn: psycopg.Connection, max_age_hours: int) -> int:
+    """Counts the mails that wait to be reported. 0 before the first notifier pass."""
+    start_at = notifier_start(conn)
+    if start_at is None:
+        return 0
+    return conn.execute(
+        f"SELECT count(*) {_REPORTABLE}", {"start": start_at, "hours": max_age_hours}
+    ).fetchone()[0]
+
+
+def count_sent_last_hour(conn: psycopg.Connection) -> int:
+    """Counts the single messages sent in the last hour."""
+    return conn.execute(
+        "SELECT count(*) FROM notifications "
+        "WHERE status = 'sent' AND created_at > now() - interval '1 hour'"
+    ).fetchone()[0]
+
+
+def record_sent(conn: psycopg.Connection, gmail_id: str, importance: str) -> None:
+    """Records that a mail was reported with its own message."""
+    conn.execute(
+        "INSERT INTO notifications (gmail_id, status, importance) VALUES (%s, 'sent', %s)",
+        (gmail_id, importance),
+    )
+
+
+def record_suppressed(conn: psycopg.Connection, mails: list[tuple[str, str]]) -> None:
+    """Records mails that were only counted in a collective message, all or none.
+
+    Args:
+        conn: Database connection.
+        mails: Pairs of Gmail ID and importance.
+    """
+    with conn.transaction():
+        for gmail_id, importance in mails:
+            conn.execute(
+                "INSERT INTO notifications (gmail_id, status, importance) "
+                "VALUES (%s, 'suppressed', %s)",
+                (gmail_id, importance),
+            )
+
+
+def touch_notifier_ok(conn: psycopg.Connection) -> None:
+    """Records that a notifier pass finished successfully now."""
+    conn.execute(
+        """INSERT INTO notifier_state (id, start_at, last_ok_at) VALUES (1, now(), now())
+           ON CONFLICT (id) DO UPDATE SET last_ok_at = now()"""
+    )
+
+
+def last_notifier_ok(conn: psycopg.Connection) -> datetime | None:
+    """Returns the time of the last successful notifier pass, or None before the first one."""
+    row = conn.execute("SELECT last_ok_at FROM notifier_state WHERE id = 1").fetchone()
     return row[0] if row else None

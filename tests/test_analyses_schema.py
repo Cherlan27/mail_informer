@@ -87,7 +87,7 @@ def test_analyzer_state_is_a_single_row_table(conn):
 
 def test_migrating_a_database_with_old_mails_keeps_them_unchanged(conn):
     # Rebuild the state of the running system: only migration 001 applied, mails present.
-    conn.execute("DROP TABLE IF EXISTS analyses, analyzer_state, messages, sync_state, schema_migrations")
+    conn.execute("DROP TABLE IF EXISTS notifications, notifier_state, analyses, analyzer_state, messages, sync_state, schema_migrations")
     first = db.resources.files("mail_informer").joinpath("migrations/001_init.sql")
     conn.execute("CREATE TABLE schema_migrations (name text PRIMARY KEY)")
     conn.execute(first.read_text(encoding="utf-8"))
