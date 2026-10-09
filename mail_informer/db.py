@@ -107,6 +107,14 @@ def set_cursor(conn: psycopg.Connection, account: str, cursor: str) -> None:
     )
 
 
+def touch_sync(conn: psycopg.Connection, account: str) -> None:
+    """Sets ``updated_at`` of an account to now, without changing its cursor.
+
+    A run that finds no news still counts as a successful sync.
+    """
+    conn.execute("UPDATE sync_state SET updated_at = now() WHERE account = %s", (account,))
+
+
 def latest_mail_date(conn: psycopg.Connection, account: str) -> datetime | None:
     """Returns the date of the newest stored mail of an account, or None if there is none."""
     return conn.execute(

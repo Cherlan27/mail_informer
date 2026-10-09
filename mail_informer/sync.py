@@ -63,5 +63,8 @@ def run_sync(conn: psycopg.Connection, account: str, source: MailSource) -> int:
         stored += len(mails)
         if new_cursor is not None:
             db.set_cursor(conn, account, new_cursor)
+    # A source with no news hands out nothing, so no cursor was saved. The run still
+    # succeeded, and the health check looks at this time.
+    db.touch_sync(conn, account)
     log.info("%s: %d new mails stored", account, stored)
     return stored

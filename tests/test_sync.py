@@ -90,6 +90,29 @@ def test_no_new_mails_keeps_everything(conn):
     assert cursor_of(conn) == "150"
 
 
+def test_a_successful_run_without_any_batch_still_counts_as_a_sync(conn):
+    # An IMAP mailbox with no news hands out nothing. The run still succeeded.
+    source = FakeSource()
+    run_sync(conn, "privat", source)
+    conn.execute("UPDATE sync_state SET updated_at = now() - interval '1 hour'")
+    source.batches = []
+    assert run_sync(conn, "privat", source) == 0
+    cursor, updated_at = db.get_cursor(conn, "privat")
+    assert cursor == "100"
+    assert datetime.now(timezone.utc) - updated_at < timedelta(minutes=1)
+
+
+def test_a_failed_run_does_not_refresh_the_sync_time(conn):
+    source = FakeSource()
+    run_sync(conn, "privat", source)
+    conn.execute("UPDATE sync_state SET updated_at = now() - interval '1 hour'")
+    source.batches = [([mail("a")], "200")]
+    source.fail_after = 0
+    with pytest.raises(RuntimeError):
+        run_sync(conn, "privat", source)
+    assert datetime.now(timezone.utc) - db.get_cursor(conn, "privat")[1] > timedelta(minutes=50)
+
+
 def test_repeated_run_stores_no_duplicates(conn):
     source = FakeSource()
     run_sync(conn, "gmail", source)

@@ -11,6 +11,10 @@ The system SHALL report the poller as unhealthy when the last successful sync of
 - **WHEN** one account has had no successful sync for more than 15 minutes while the others are fine
 - **THEN** the container healthcheck fails
 
+#### Scenario: Quiet account
+- **WHEN** an account receives no new mails for hours and every run for it succeeds
+- **THEN** it stays healthy
+
 #### Scenario: New account without a sync yet
 - **WHEN** an account was just added and its first run has not finished
 - **THEN** it counts as unhealthy only after 15 minutes

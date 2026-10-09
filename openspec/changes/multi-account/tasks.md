@@ -1,6 +1,6 @@
 ## 1. Check the Strato mailbox
 
-- [ ] 1.1 From a throwaway script (not committed), log in to one Strato mailbox with `imaplib.IMAP4_SSL`, read `STATUS INBOX (UIDVALIDITY UIDNEXT)`, and fetch one mail with `BODY.PEEK[]` in a read-only `SELECT`. Confirm the server name, the port, the login form, and that the mail stays unread. Do not print the password or mail content
+- [x] 1.1 From a throwaway script (not committed), log in to one Strato mailbox with `imaplib.IMAP4_SSL`, read `STATUS INBOX (UIDVALIDITY UIDNEXT)`, and fetch one mail with `BODY.PEEK[]` in a read-only `SELECT`. Confirm the server name, the port, the login form, and that the mail stays unread. Do not print the password or mail content
 
 ## 2. Accounts file (`accounts.py`)
 
@@ -60,6 +60,8 @@
 
 - [x] 8.1 Red: tests that `health` is 0 when all accounts synced in the last 15 minutes and 1 when one account is older, when an account has never succeeded, and that rows of removed accounts are ignored
 - [x] 8.2 Green: implement it with the accounts file and the oldest `updated_at`
+- [x] 8.3 Red: test that a successful run with no news (the source hands out no batch) still refreshes the sync time but not the cursor, and that a failed run does not. Found in task 11.4 on the real stack
+- [x] 8.4 Green: add `touch_sync` and call it at the end of `run_sync`
 
 ## 9. Account in the message
 

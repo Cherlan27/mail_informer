@@ -102,3 +102,12 @@ def test_oldest_sync_at_is_none_when_an_account_has_no_row(conn):
     db.register_account(conn, "a")
     assert db.oldest_sync_at(conn, ["a", "never-registered"]) is None
     assert db.oldest_sync_at(conn, []) is None
+
+
+def test_touch_sync_refreshes_the_time_but_not_the_cursor(conn):
+    db.register_account(conn, "a")
+    db.set_cursor(conn, "a", "x")
+    conn.execute("UPDATE sync_state SET updated_at = now() - interval '1 hour'")
+    db.touch_sync(conn, "a")
+    cursor, updated_at = db.get_cursor(conn, "a")
+    assert cursor == "x" and datetime.now(timezone.utc) - updated_at < timedelta(minutes=1)
