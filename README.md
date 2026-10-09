@@ -1,10 +1,10 @@
 # mail_informer
 
-Polls your Gmail mailbox every 5 minutes and archives new mails (metadata + plain-text body) in Postgres. The import starts when you set it up. There is no backfill of old mails.
+Polls your mail accounts every 5 minutes (one Gmail account and any number of IMAP mailboxes, for example Strato) and archives new mails (metadata + plain-text body) in Postgres. The import starts when you set it up. There is no backfill of old mails.
 
 A second service, the analyzer, rates every archived mail with a local language model (Ollama): a category, an importance level, and for important and urgent mails a short German summary. Mail text never leaves your machine.
 
-A third service, the notifier, sends each new `urgent` or `important` mail to your phone through a Home Assistant webhook: category, importance, sender, and the summary. Nothing else from the mail leaves the stack.
+A third service, the notifier, sends each new `urgent` or `important` mail to your phone through a Home Assistant webhook: account, category, importance, sender, and the summary. Nothing else from the mail leaves the stack.
 
 ## Setup
 
@@ -29,6 +29,18 @@ copy .env.example .env     # set POSTGRES_PASSWORD
 2. Check that it runs on the GPU: `ollama run qwen3.5:4b hi`, then `ollama ps` should show `100% GPU`.
 3. Check that containers can reach it: `docker run --rm curlimages/curl curl -s http://host.docker.internal:11434/` should print `Ollama is running`. If not, let Ollama listen on all interfaces (`OLLAMA_HOST=0.0.0.0`) and limit port 11434 to local traffic in the firewall.
 
+### 2a. Mail accounts
+
+All accounts are listed in one file, `secrets/accounts.toml`. Copy `accounts.toml.example` there and edit it. The folder is git-ignored and docker-ignored, and the file holds passwords.
+
+- The Gmail account **must be named `gmail`**. The upgrade assigns the stored mails and the sync point to that name. A different name is a new account that starts from now, so mails that arrived since the last run would be skipped. The poller logs a warning if it sees this.
+- Each IMAP mailbox has a `name`, `host`, `user`, and `password`. For Strato the server is expected to be `imap.strato.de` (check your customer area). Only TLS on port 993 is used, and the server certificate is checked.
+- Only the `INBOX` folder is read, and nothing is changed on the server (mails stay unread).
+- Use a password for each mailbox that you use nowhere else. It is a full login to the mailbox.
+- A **new account starts from now**: the first run stores the current end of the inbox and imports nothing. Only mails that arrive afterwards are imported, analyzed, and reported.
+- To add an account, add a block and run `docker compose restart poller`. To remove one, delete its block. Its stored mails stay.
+- Account names use lowercase letters, digits, `_` and `-`. Renaming an account makes it a new account.
+
 ### 2c. Home Assistant (once)
 
 1. In Home Assistant, create an automation with a webhook trigger. Pick a long random webhook id and keep it secret. Example (for Home Assistant 2024.10 or newer; adjust the phone name):
@@ -48,7 +60,7 @@ actions:
             data:
               title: >-
                 {{ 'Dringende Mail' if trigger.json.importance == 'urgent' else 'Wichtige Mail' }}
-                ({{ trigger.json.category }})
+                ({{ trigger.json.account }}, {{ trigger.json.category }})
               message: "{{ trigger.json.sender }}: {{ trigger.json.summary }}"
       - conditions: "{{ trigger.json.kind == 'digest' }}"
         sequence:
@@ -63,7 +75,7 @@ actions:
 3. Test the automation by hand. Home Assistant answers `200` even for a wrong id, so check the phone:
 
 ```
-curl -X POST -H "Content-Type: application/json" -d '{"kind":"mail","category":"work","importance":"urgent","sender":"Test","summary":"Das ist ein Test."}' "$HA_WEBHOOK_URL"
+curl -X POST -H "Content-Type: application/json" -d '{"kind":"mail","account":"privat","category":"work","importance":"urgent","sender":"Test","summary":"Das ist ein Test."}' "$HA_WEBHOOK_URL"
 ```
 
 ### 3. Authorize (once, on the host)
@@ -83,12 +95,14 @@ docker compose up -d
 docker compose logs -f poller
 ```
 
-A run starts right away (this catches up after sleep). After that, a run starts every 5 minutes. The very first run only sets the starting point. Mails that arrive after it are imported.
+A run starts right away (this catches up after sleep). After that, a run starts every 5 minutes. The very first run of each account only sets its starting point. Mails that arrive after it are imported.
 
 ## Notes
 
 - To connect to the database from the host, use `127.0.0.1:5432`, not `localhost`. On Windows, `localhost` tries IPv6 and the connection hangs.
-- If Gmail no longer knows the sync point (pause longer than about one week), the poller reloads mails by date.
+- If Gmail no longer knows the sync point (pause longer than about one week), the poller reloads mails by date. For IMAP the same happens when the server changes the UID validity of the inbox.
+- One run syncs all accounts one after the other. If an account fails, the log names it (never the password), the others still run, and the run ends with an error.
+- A mail delivered to two of your mailboxes is stored once per mailbox, and may be reported twice.
 - The analyzer rates mails that have no result yet, newest first, at most 50 per pass. A pass runs every 5 minutes and ends at once when there is no work. Only importance `urgent` leads to a summary. The model only returns a rating; nothing is done on the basis of a mail's text.
 - A mail without a `List-Unsubscribe` header is not bulk. Bulk mail (`is_bulk = true`) and mails imported before the flag existed (`is_bulk` is `NULL`) can never be `urgent`: an `urgent` answer is stored as `important`.
 - The notifier runs every 5 minutes. It reports a mail at most once and only mails that were first analyzed after the notifier first ran (the existing archive is not sent). At most 10 single messages go out per hour. If more mails are ready, one collective message tells how many. A mail whose analysis is older than 6 hours is no longer reported.
@@ -107,7 +121,7 @@ Importance levels: `ignore`, `normal`, `important`, `urgent`. `reason` holds a s
 To see what was reported:
 
 ```
-docker compose exec postgres psql -U mail_informer -c "SELECT n.created_at, n.status, n.importance, m.from_addr FROM notifications n JOIN messages m USING (gmail_id) ORDER BY n.created_at DESC LIMIT 20"
+docker compose exec postgres psql -U mail_informer -c "SELECT n.created_at, m.account, n.status, n.importance, m.from_addr FROM notifications n JOIN messages m USING (gmail_id) ORDER BY n.created_at DESC LIMIT 20"
 ```
 
 `sent` means a single message, `suppressed` means the mail was only counted in a collective message.
@@ -126,9 +140,11 @@ It prints the share of correct categories and importance levels, the wrong impor
 
 ## Operations
 
-- `docker compose ps` shows the poller as `unhealthy` if the last successful sync is older than 15 minutes (`python -m mail_informer health`).
+- `docker compose ps` shows the poller as `unhealthy` if any account has no successful sync for more than 15 minutes (`python -m mail_informer health`). An account with a wrong password makes it unhealthy after 15 minutes, while the other accounts keep syncing.
 - `docker compose ps` shows the analyzer as `unhealthy` if mails wait for analysis and the last successful pass is older than 30 minutes (`python -m mail_informer analyzer-health`). An idle analyzer stays healthy. If Ollama is stopped, a pass fails with the log line `Model server unavailable`. No mail is marked `failed`, and the analyzer recovers on its own when Ollama is back.
 - `docker compose ps` shows the notifier as `unhealthy` if mails wait to be reported and the last successful pass is older than 30 minutes (`python -m mail_informer notifier-health`). If Home Assistant is not reachable, a pass fails with the log line `Home Assistant unavailable`. Nothing is recorded, and the next pass tries again until the 6-hour limit. If a crash happens between sending and recording, that one message is sent again.
+- Rollback of multi-account: restore the database dump taken before the upgrade and run the old image. The migration cannot be undone in place. If only the account `gmail` has data, this reverses it by hand (run in `psql`; it deletes the IMAP mails and their sync points first):
+  `DELETE FROM messages WHERE account <> 'gmail'; DELETE FROM sync_state WHERE account <> 'gmail'; ALTER TABLE sync_state ADD COLUMN id integer; UPDATE sync_state SET id = 1; ALTER TABLE sync_state DROP CONSTRAINT sync_state_pkey, DROP COLUMN account, ALTER COLUMN id SET NOT NULL, ADD PRIMARY KEY (id), ADD CHECK (id = 1); ALTER TABLE sync_state RENAME COLUMN cursor TO history_id; ALTER TABLE sync_state ALTER COLUMN history_id SET NOT NULL; ALTER TABLE messages DROP COLUMN account; DELETE FROM schema_migrations WHERE name = '005_accounts.sql';`
 - Rollback of the notifier: `docker compose stop notifier`; the poller and the analyzer do not depend on it. To undo its migration by hand: drop `notifications` and `notifier_state`.
 - Rollback of the analyzer: stop the analyzer (`docker compose stop analyzer`); the poller works without it. To undo the migrations by hand: drop `analyses` and `analyzer_state`, drop `messages.is_bulk`, and re-add `messages.analysis_status text NOT NULL DEFAULT 'pending'` with an index on it.
 - The container runs as a non-root user (UID 1000). `secrets/` is mounted writable because the poller rewrites the OAuth token when it refreshes it. On Linux hosts, the directory must be writable for UID 1000 (`chown -R 1000 secrets`). `secrets/` is listed in `.gitignore` and `.dockerignore`.

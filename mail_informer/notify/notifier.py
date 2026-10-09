@@ -38,7 +38,8 @@ def run_notification(conn: psycopg.Connection, notifier: Notifier) -> int:
         room = rules.free_places(db.count_sent_last_hour(conn))
         singles, rest = rules.split_by_room(mails, room)
         for mail in singles:
-            notifier.send(rules.mail_message(mail.category, mail.importance, mail.sender, mail.summary))
+            notifier.send(rules.mail_message(
+                mail.account, mail.category, mail.importance, mail.sender, mail.summary))
             db.record_sent(conn, mail.gmail_id, mail.importance)
         if rest:
             notifier.send(rules.digest_message(len(rest)))

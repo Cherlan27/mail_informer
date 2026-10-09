@@ -63,16 +63,16 @@
 
 ## 9. Account in the message
 
-- [ ] 9.1 Red: tests that the mail message has the keys `kind`, `account`, `category`, `importance`, `sender`, `summary`, and that two mails of different accounts carry their own account. The digest message stays unchanged
-- [ ] 9.2 Green: add `account` to `ReportableMail` (join on `messages`), to `mail_message`, and to the notifier pass
-- [ ] 9.3 Update the notifier tests that build mails
+- [x] 9.1 Red: tests that the mail message has the keys `kind`, `account`, `category`, `importance`, `sender`, `summary`, and that two mails of different accounts carry their own account. The digest message stays unchanged
+- [x] 9.2 Green: add `account` to `ReportableMail` (join on `messages`), to `mail_message`, and to the notifier pass
+- [x] 9.3 Update the notifier tests that build mails
 
 ## 10. Compose, config, and docs
 
-- [ ] 10.1 Compose: set `ACCOUNTS_PATH: /secrets/accounts.toml` for the poller. Keep `TOKEN_PATH` out of the poller environment if nothing reads it. Check that `secrets/` stays in `.gitignore` and `.dockerignore`
-- [ ] 10.2 Add `ACCOUNTS_PATH` to `.env.example`. Add an `accounts.toml.example` (no real values) to the repo root
-- [ ] 10.3 README: accounts file with the Strato example, the rule that the Gmail account is named `gmail`, the first-run rule (new accounts start from now), a password hint, how to add and remove an account, the `account` field in the Home Assistant example, and the rollback SQL
-- [ ] 10.4 Update `openspec/config.yaml` context: several accounts, Gmail and IMAP, and the layer for `imap.py` and `accounts.py`
+- [x] 10.1 Compose: set `ACCOUNTS_PATH: /secrets/accounts.toml` for the poller. Keep `TOKEN_PATH` out of the poller environment if nothing reads it. Check that `secrets/` stays in `.gitignore` and `.dockerignore`
+- [x] 10.2 Add `ACCOUNTS_PATH` to `.env.example`. Add an `accounts.toml.example` (no real values) to the repo root
+- [x] 10.3 README: accounts file with the Strato example, the rule that the Gmail account is named `gmail`, the first-run rule (new accounts start from now), a password hint, how to add and remove an account, the `account` field in the Home Assistant example, and the rollback SQL
+- [x] 10.4 Update `openspec/config.yaml` context: several accounts, Gmail and IMAP, and the layer for `imap.py` and `accounts.py`
 
 ## 11. Check the real stack
 

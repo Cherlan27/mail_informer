@@ -21,6 +21,7 @@ class ReportableMail(NamedTuple):
     """An analyzed mail that may be reported to the phone."""
 
     gmail_id: str
+    account: str
     category: str
     importance: str
     sender: str | None
@@ -300,7 +301,7 @@ def pick_reportable(
 ) -> list[ReportableMail]:
     """Returns analyzed mails that should be reported and are not recorded yet."""
     rows = conn.execute(
-        f"""SELECT l.gmail_id, l.category, l.importance, m.from_addr, l.summary, l.updated_at
+        f"""SELECT l.gmail_id, m.account, l.category, l.importance, m.from_addr, l.summary, l.updated_at
             {_REPORTABLE}""",
         {"start": start_at, "hours": max_age_hours},
     )
