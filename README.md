@@ -58,7 +58,8 @@ actions:
               message: "{{ trigger.json.count }} weitere Mails (Limit von 10 pro Stunde erreicht)"
 ```
 
-2. Put the full address in `.env` as `HA_WEBHOOK_URL=http://homeassistant:8123/api/webhook/<your-secret-id>`. The id is a secret: never commit it. `docker compose` does not start until this is set.
+2. Put the full address in `.env` as `HA_WEBHOOK_URL=http://<home-assistant-host>:8123/api/webhook/<your-secret-id>`. The id is a secret: never commit it. `docker compose` does not start until this is set.
+   The host name must resolve **inside the Compose network**. A short name such as `homeassistant` often works on the host but not in the container. Use a full name (for example `homeassistant.fritz.box`) or a fixed IP address, and check it with `docker compose run --rm --no-deps --entrypoint python notifier -c "import socket; print(socket.gethostbyname('<home-assistant-host>'))"`.
 3. Test the automation by hand. Home Assistant answers `200` even for a wrong id, so check the phone:
 
 ```

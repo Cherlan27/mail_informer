@@ -4,7 +4,7 @@ See proposal.md for the motivation. Current state:
 
 - The analyzer writes one row per mail and prompt version to `analyses` (`status`, `category`, `importance`, `summary`, `updated_at`). `important` and `urgent` mails have a German summary. Bulk and unknown-bulk mails can never be `urgent`.
 - Compose runs `postgres`, `poller`, and `analyzer`. The analyzer pattern is the model for this change: same image, `RUN_COMMAND` and `CRONTAB` set per service, a 5-minute schedule with supercronic, an advisory lock per service, a state row with `last_ok_at`, and a health command.
-- Home Assistant runs on the home network and answers at `http://homeassistant:8123/`. A test container resolved the name and got HTTP 200, so no fixed IP is needed.
+- Home Assistant runs on the home network. The short name `homeassistant` resolves on the host and in a container on the default Docker network, but **not** inside the Compose network. `homeassistant.fritz.box` and `homeassistant.local` resolve there. The address in `.env` therefore uses a full name (or a fixed IP). This was found while checking the stack, see tasks 9.1 and 9.2.
 - Migrations are numbered SQL files. The last one is `003_analyses.sql`.
 
 Constraints: the webhook address is a secret. Model text is data (see the `mail-analysis` spec). The container runs as a non-root user.
