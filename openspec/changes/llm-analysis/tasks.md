@@ -89,7 +89,7 @@
 ## 12. End-to-end check and wrap-up
 
 - [x] 12.1 Rebuild and start the stack. Confirm that the migrations ran and that the existing mails get results in `analyses`, that no `urgent` result exists for them (bulk unknown), and that `messages` is unchanged apart from the new flag
-- [ ] 12.2 Stop Ollama and confirm that the pass fails with a log message, no mail turns `failed`, and the analyzer becomes `unhealthy` after the set time. Then start Ollama again and confirm it recovers
-- [ ] 12.3 Send a test mail that is not bulk and contains an urgent topic. Confirm it is rated `urgent` with a German summary
+- [x] 12.2 Stop Ollama and confirm that the pass fails with a log message, no mail turns `failed`, and the analyzer becomes `unhealthy` after the set time. Then start Ollama again and confirm it recovers
+- [x] 12.3 Send a test mail that is not bulk and contains an urgent topic. Confirm it is rated `urgent` with a German summary
 - [x] 12.4 Run the full test suite with `TEST_DATABASE_URL` set and show the result
-- [ ] 12.5 Update the README: Ollama setup, the new settings, how to read results from `analyses`, how to run `evaluate`, and the rollback steps
+- [x] 12.5 Update the README: Ollama setup, the new settings, how to read results from `analyses`, how to run `evaluate`, and the rollback steps
