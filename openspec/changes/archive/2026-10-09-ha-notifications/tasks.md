@@ -78,7 +78,7 @@
 
 - [x] 9.1 Rebuild and start the stack. Confirm that migration 004 ran, that the existing mails are unchanged, and that no message is sent for the existing archive
 - [x] 9.2 Make Home Assistant unreachable (rename the webhook, or block it) and confirm that a pass fails with a log line and no mail is recorded. Confirm that the notifier turns `unhealthy` after the set time (set `last_ok_at` back instead of waiting) and recovers
-- [ ] 9.3 Send a test mail that is not bulk and has an urgent topic. Confirm that exactly one message arrives on the phone with category, importance, sender, and summary
+- [x] 9.3 Send a test mail that is not bulk and has an urgent topic. Confirm that exactly one message arrives on the phone with category, importance, sender, and summary
 - [x] 9.4 Confirm the limit with test rows in a throwaway database: 12 ready mails give 10 single messages and one digest
 - [x] 9.5 Run the full test suite with `TEST_DATABASE_URL` set and show the result
 - [x] 9.6 Update the README: the new service, `HA_WEBHOOK_URL`, the example Home Assistant automation (for `kind` mail and digest), a `curl` test of the webhook, how to see what was reported (`notifications`), and the rollback steps
