@@ -64,6 +64,7 @@ class OllamaClient:
             "messages": messages,
             "stream": False,
             "format": schema,
+            "think": False,
             "options": {"temperature": 0, "seed": SEED},
             "keep_alive": KEEP_ALIVE,
         }).encode("utf-8")

@@ -77,6 +77,7 @@ def test_request_is_constrained_and_deterministic(ollama):
     assert body["options"]["temperature"] == 0
     assert "seed" in body["options"]
     assert "keep_alive" in body
+    assert body["think"] is False
     assert "tools" not in body
 
 

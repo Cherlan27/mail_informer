@@ -108,12 +108,19 @@ A new package `mail_informer/analysis/` next to the existing modules:
 | gemma3:12b | v1 | 32/49 | 34/49 | 2 | 2 | 53 s |
 | gemma3:12b | v2 | 42/49 | 34/49 | 0 | 2 | not measured |
 | qwen3:8b | v2 | 45/49 | 32/49 | 0 | 1 | not measured |
+| qwen3:8b, `think: false` | v2 | 40/49 | 33/49 | 0 | 2 | 2 min 0 s |
+| qwen3.5:9b, `think: false` | v2 | 43/49 | 29/49 | 0 | 1 | 2 min 6 s |
+| qwen3.5:4b, `think: false` | v2 | 44/49 | 30/49 | 0 | 2 | 2 min 3 s |
+
+The three `think: false` rows are a second round, run after the client started to send `think: false`. The 2-minute times are mostly model loading. The earlier qwen3:8b row ran with thinking on, so it is not comparable with the later rows.
 
 - Both models missed approval and rejection letters from authorities with prompt v1. The cause was a vague prompt, not the models. Prompt v2 names the authorities and says that every decision letter is urgent.
 - Most remaining mistakes are newsletters rated `normal` instead of `ignore`. This is harmless: neither level leads to a notification.
 - The only false `urgent` of qwen3:8b is the phishing sample. It is a bulk mail, so the bulk guard lowers it to `important`. The guard works as designed.
 - **Caveat:** prompt v2 was written after looking at the mistakes on this same set, and the sample mails were written by the same author as the prompt. The numbers are therefore too good. They must be confirmed on new, real mails before the stage is trusted.
-- **Provisional choice:** qwen3:8b with prompt v2. It meets the bar (no missed urgent mail) and has the fewest wrong ratings. gemma3:12b is faster and is the fallback.
+- Most category mistakes (15 of 20 for qwen3.5:9b) are advertising or LinkedIn notices rated `newsletter`. Their importance is still `ignore`, so no rating changes. Two real mistakes remain: authority letters rated `personal` instead of `authority`, with the right importance.
+- The two false `urgent` answers of qwen3.5:4b are the phishing sample and a real Google security notice. Both are bulk mails, so the bulk guard lowers them to `important`.
+- **Choice:** qwen3.5:4b with prompt v2. It meets the bar (no missed urgent mail), is level with qwen3.5:9b and ahead of qwen3:8b and gemma3:12b on importance, and needs about 3 to 4 GB instead of 5 to 8 GB. The gap is one to four mails of 49, so this is a preference, not a clear win. qwen3.5:9b and gemma3:12b are the fallbacks. Larger models (27b and up) were not tried: the volume is small and they would take 18 GB or more of the shared GPU.
 
 ### 10. Healthcheck
 `analyzer-health` fails when unanalyzed mails exist and `last_ok_at` is older than 30 minutes. With no work it passes. A switched-off model server therefore shows up as `unhealthy` after half an hour, but an idle analyzer does not.

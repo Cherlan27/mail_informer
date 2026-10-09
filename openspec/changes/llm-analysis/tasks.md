@@ -82,9 +82,9 @@
 
 - [x] 11.1 Red: tests for the evaluation report using a fake model and a small label file: share of correct categories and importance levels, and the number of missed `urgent` mails
 - [x] 11.2 Green: implement `evaluate` (`analysis/evaluate.py` and the CLI command). It reads only IDs and labels from the file, reads the mail text from the database, and writes nothing to `analyses`
-- [ ] 11.3 Label about 40 real mails by hand, covering all five urgent topics, newsletters, and ads. Keep the file out of git
-- [ ] 11.4 Run `evaluate` for at least two candidate models and write the result and the choice into design.md. A model qualifies only if it misses no `urgent` mail
-- [ ] 11.5 Set the chosen model as the default in `.env.example`
+- [x] 11.3 Label about 40 real mails by hand, covering all five urgent topics, newsletters, and ads. Keep the file out of git
+- [x] 11.4 Run `evaluate` for at least two candidate models and write the result and the choice into design.md. A model qualifies only if it misses no `urgent` mail
+- [x] 11.5 Set the chosen model as the default in `.env.example`
 
 ## 12. End-to-end check and wrap-up
 
