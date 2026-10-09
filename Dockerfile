@@ -14,7 +14,7 @@ COPY pyproject.toml constraints.txt ./
 COPY mail_informer ./mail_informer
 RUN pip install --no-cache-dir -c constraints.txt .
 
-COPY crontab entrypoint.sh ./
+COPY crontab crontab.analyzer entrypoint.sh ./
 RUN chmod +x entrypoint.sh \
     && useradd --create-home --uid 1000 app
 USER app

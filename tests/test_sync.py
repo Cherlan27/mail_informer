@@ -70,8 +70,8 @@ def test_delta_stores_mails_and_advances_state(conn):
     assert run_sync(conn, gmail) == 3
     assert count(conn) == 3
     assert db.get_sync_state(conn)[0] == "200"
-    status = conn.execute("SELECT DISTINCT analysis_status FROM messages").fetchall()
-    assert status == [("pending",)]
+    analyzed = conn.execute("SELECT count(*) FROM analyses").fetchone()[0]
+    assert analyzed == 0  # new mails have no analysis result
 
 
 def test_no_new_mails(conn):

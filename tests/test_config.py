@@ -19,3 +19,30 @@ def test_values_from_environment(monkeypatch):
     monkeypatch.setenv("TOKEN_PATH", "/t.json")
     cfg = load_config()
     assert (cfg.database_url, cfg.token_path) == ("postgresql://x", "/t.json")
+
+
+def test_analyzer_requires_a_model_name(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("ANALYZER_MODEL", raising=False)
+    with pytest.raises(RuntimeError, match="ANALYZER_MODEL"):
+        load_config(require_model=True)
+
+
+def test_model_name_is_not_required_for_other_commands(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("ANALYZER_MODEL", raising=False)
+    assert load_config().analyzer_model == ""
+
+
+def test_model_server_defaults_to_the_host_address(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("OLLAMA_URL", raising=False)
+    assert load_config().ollama_url == "http://host.docker.internal:11434"
+
+
+def test_analyzer_settings_from_environment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.setenv("ANALYZER_MODEL", "some-model")
+    monkeypatch.setenv("OLLAMA_URL", "http://localhost:11434")
+    cfg = load_config(require_model=True)
+    assert (cfg.analyzer_model, cfg.ollama_url) == ("some-model", "http://localhost:11434")

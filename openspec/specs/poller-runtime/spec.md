@@ -5,12 +5,15 @@ Describes operation and setup of the poller: the container stack, the one-time O
 ## Requirements
 
 ### Requirement: Start with Compose
-The system SHALL start Postgres and the poller with a single `docker compose up`.
+The system SHALL start Postgres, the poller, and the analyzer with a single `docker compose up`. The model server SHALL run on the host and SHALL NOT be part of the stack.
 
 #### Scenario: Start the stack
 - **WHEN** the user runs `docker compose up -d` after the authorization is done
-- **THEN** Postgres and the poller run and the data is kept in a persistent volume
+- **THEN** Postgres, the poller, and the analyzer run and the data is kept in a persistent volume
 
+#### Scenario: Model server not running yet
+- **WHEN** the stack starts while the model server is off
+- **THEN** the poller works as usual and the analyzer waits and tries again later
 ### Requirement: Periodic execution
 The system SHALL start the fetch every 30 minutes as a separate run that ends when it is done.
 
@@ -56,3 +59,14 @@ The system SHALL NOT keep the client secret, token, or database password in the 
 #### Scenario: Repository content
 - **WHEN** the repository is checked
 - **THEN** secrets are excluded by ignore rules and only example configuration is included
+
+### Requirement: Analyzer health reporting
+The system SHALL report the analyzer as unhealthy if it has not completed a successful pass for more than a set time while unanalyzed mails exist.
+
+#### Scenario: Analyzer stuck
+- **WHEN** unanalyzed mails exist and no pass has succeeded for longer than the set time
+- **THEN** the container healthcheck of the analyzer fails
+
+#### Scenario: Nothing to analyze
+- **WHEN** no unanalyzed mails exist
+- **THEN** the analyzer is reported as healthy

@@ -19,6 +19,7 @@ class Mail:
     labels: list[str] = field(default_factory=list)
     snippet: str | None = None
     body_text: str = ""
+    is_bulk: bool | None = None  # None means unknown
 
 
 def _headers(payload: dict) -> dict[str, str]:
@@ -100,4 +101,5 @@ def parse_message(raw: dict) -> Mail:
         labels=list(raw.get("labelIds", [])),
         snippet=raw.get("snippet"),
         body_text=extract_body_text(payload),
+        is_bulk="list-unsubscribe" in headers,
     )
