@@ -2,7 +2,7 @@ schema: spec-driven
 
 # Project context, shown to the AI when it creates artifacts.
 context: |
-  Project: mail_informer. Polls Gmail every 30 minutes and archives new mails
+  Project: mail_informer. Polls Gmail every 5 minutes and archives new mails
   (metadata + plain-text body) in Postgres. A later stage will analyze them with an LLM.
 
   Tech stack: Python 3.12, psycopg 3, Gmail API (google-api-python-client),

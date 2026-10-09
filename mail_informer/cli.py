@@ -17,8 +17,8 @@ from .sync import run_sync
 
 log = logging.getLogger("mail_informer")
 
-# Cron runs every 30 minutes. After 90 minutes without a sync, the poller counts as stuck.
-MAX_SYNC_AGE = timedelta(minutes=90)
+# Cron runs every 5 minutes. After 15 minutes without a sync, the poller counts as stuck.
+MAX_SYNC_AGE = timedelta(minutes=15)
 # The analyzer runs every 5 minutes. After 30 minutes without a pass, it counts as stuck.
 MAX_ANALYZER_AGE = timedelta(minutes=30)
 # The notifier runs every 5 minutes. After 30 minutes without a pass, it counts as stuck.

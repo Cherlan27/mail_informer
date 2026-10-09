@@ -14,6 +14,7 @@ The analyzer now rates every mail, but the result sits in the database and nobod
 - If Home Assistant cannot be reached, nothing is recorded and the next pass tries again.
 - The webhook address is a secret. It comes from `HA_WEBHOOK_URL` in `.env` and is never logged or committed.
 - New command `notify` and a healthcheck `notifier-health` (unhealthy when reportable mails wait and the last successful pass is older than 30 minutes).
+- The poller runs every 5 minutes instead of every 30, so a new mail reaches the phone within about 10 minutes. Its healthcheck limit goes from 90 to 15 minutes (three missed runs).
 - The README gets an example Home Assistant automation that turns the message into a phone notification.
 
 ## Non-goals

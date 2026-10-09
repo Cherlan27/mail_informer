@@ -1,1 +1,1 @@
-*/30 * * * * python -m mail_informer run
+*/5 * * * * python -m mail_informer run

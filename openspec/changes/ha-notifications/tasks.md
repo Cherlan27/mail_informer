@@ -68,6 +68,12 @@
 - [x] 8.1 Add `crontab.notifier` (every 5 minutes) and the `notifier` service to `docker-compose.yml`: same image, `RUN_COMMAND: notify`, no `secrets/` volume, `depends_on` Postgres healthy, `HA_WEBHOOK_URL` required from `.env`, non-root user, healthcheck with `notifier-health`
 - [x] 8.2 Make sure `.env` is git-ignored and Docker-ignored, and that the address is not printed by `docker compose config` in any file in the repo
 
+## 9a. Poll every 5 minutes
+
+- [x] 9a.1 Red: CLI tests for the poller healthcheck: unhealthy before the first sync, healthy 10 minutes after the last sync, unhealthy 20 minutes after it
+- [x] 9a.2 Green: set `MAX_SYNC_AGE` to 15 minutes and the poller schedule in `crontab` to every 5 minutes
+- [x] 9a.3 Update the 30-minute and 90-minute texts in the README, in the Purpose of the `poller-runtime` spec, and in `openspec/config.yaml`
+
 ## 9. Check in the real stack
 
 - [x] 9.1 Rebuild and start the stack. Confirm that migration 004 ran, that the existing mails are unchanged, and that no message is sent for the existing archive

@@ -13,6 +13,24 @@ The system SHALL report the notifier as unhealthy if it has not completed a succ
 
 ## MODIFIED Requirements
 
+### Requirement: Periodic execution
+The system SHALL start the fetch every 5 minutes as a separate run that ends when it is done.
+
+#### Scenario: Schedule
+- **WHEN** the stack is running
+- **THEN** a run starts about every 5 minutes
+
+#### Scenario: No parallel runs
+- **WHEN** a run is still active when the next one starts
+- **THEN** the new run does not start in parallel
+
+### Requirement: Health reporting
+The system SHALL report the poller as unhealthy when the last successful sync is older than 15 minutes.
+
+#### Scenario: Syncs keep failing
+- **WHEN** no run has succeeded for more than 15 minutes
+- **THEN** the container healthcheck fails
+
 ### Requirement: Start with Compose
 The system SHALL start Postgres, the poller, the analyzer, and the notifier with a single `docker compose up`. The model server SHALL run on the host and SHALL NOT be part of the stack. The notifier SHALL NOT need the model server, and the analyzer SHALL NOT need Home Assistant.
 

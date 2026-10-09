@@ -90,6 +90,14 @@ Per pass, `room = 10 - (rows with status 'sent' and created_at in the last hour)
 - `db.py`: all SQL (select reportable mails, count sent in the last hour, record, state).
 - `cli.py`: `notify` and `notifier-health`. `config.py`: `HA_WEBHOOK_URL`, required only for `notify`.
 
+### 10. Poll every 5 minutes
+The poller schedule changes from every 30 to every 5 minutes (`crontab`), and its healthcheck limit from 90 to 15 minutes (`MAX_SYNC_AGE`), which is still three missed runs.
+
+- Why: with a 30-minute poll, the notification of an urgent mail was late by up to 30 minutes plus the analyzer and notifier passes. With 5 minutes, the worst case is about 15 minutes, and a typical mail arrives within 10.
+- Cost: 288 Gmail history requests a day. They are small and far below the Gmail API quota. A run with no new mail ends at once.
+- The run lock stays: a run that is still active when the next starts makes the new run exit.
+- Alternative: Gmail push (Pub/Sub). Rejected: it needs a public endpoint and Google Cloud setup, and the poller was designed without a daemon.
+
 ## Risks / Trade-offs
 
 - [Crash after sending but before recording] → One duplicate message in the next pass. Accepted (decision 4).

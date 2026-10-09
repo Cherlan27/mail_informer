@@ -1,6 +1,6 @@
 # mail_informer
 
-Polls your Gmail mailbox every 30 minutes and archives new mails (metadata + plain-text body) in Postgres. The import starts when you set it up. There is no backfill of old mails.
+Polls your Gmail mailbox every 5 minutes and archives new mails (metadata + plain-text body) in Postgres. The import starts when you set it up. There is no backfill of old mails.
 
 A second service, the analyzer, rates every archived mail with a local language model (Ollama): a category, an importance level, and for important and urgent mails a short German summary. Mail text never leaves your machine.
 
@@ -83,7 +83,7 @@ docker compose up -d
 docker compose logs -f poller
 ```
 
-A run starts right away (this catches up after sleep). After that, a run starts every 30 minutes. The very first run only sets the starting point. Mails that arrive after it are imported.
+A run starts right away (this catches up after sleep). After that, a run starts every 5 minutes. The very first run only sets the starting point. Mails that arrive after it are imported.
 
 ## Notes
 
@@ -126,7 +126,7 @@ It prints the share of correct categories and importance levels, the wrong impor
 
 ## Operations
 
-- `docker compose ps` shows the poller as `unhealthy` if the last successful sync is older than 90 minutes (`python -m mail_informer health`).
+- `docker compose ps` shows the poller as `unhealthy` if the last successful sync is older than 15 minutes (`python -m mail_informer health`).
 - `docker compose ps` shows the analyzer as `unhealthy` if mails wait for analysis and the last successful pass is older than 30 minutes (`python -m mail_informer analyzer-health`). An idle analyzer stays healthy. If Ollama is stopped, a pass fails with the log line `Model server unavailable`. No mail is marked `failed`, and the analyzer recovers on its own when Ollama is back.
 - `docker compose ps` shows the notifier as `unhealthy` if mails wait to be reported and the last successful pass is older than 30 minutes (`python -m mail_informer notifier-health`). If Home Assistant is not reachable, a pass fails with the log line `Home Assistant unavailable`. Nothing is recorded, and the next pass tries again until the 6-hour limit. If a crash happens between sending and recording, that one message is sent again.
 - Rollback of the notifier: `docker compose stop notifier`; the poller and the analyzer do not depend on it. To undo its migration by hand: drop `notifications` and `notifier_state`.

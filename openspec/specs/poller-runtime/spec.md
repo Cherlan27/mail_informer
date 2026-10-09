@@ -1,6 +1,6 @@
 ## Purpose
 
-Describes operation and setup of the poller: the container stack, the one-time OAuth authorization, and the 30-minute scheduling.
+Describes operation and setup of the poller: the container stack, the one-time OAuth authorization, and the 5-minute scheduling.
 
 ## Requirements
 
