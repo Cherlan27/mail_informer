@@ -32,11 +32,11 @@
 
 ## 5. Sync loop (`sync.py`)
 
-- [ ] 5.1 Red: tests with a fake source for the account rules: first run stores the starting point and imports nothing, later run imports new mails and moves the cursor, a store error keeps the old cursor, a second account's cursor is not touched
-- [ ] 5.2 Green: change the `MailSource` protocol to the opaque cursor and rewrite `run_sync(conn, account, source)` to match
-- [ ] 5.3 Refactor: remove the history ID names from `sync.py`
-- [ ] 5.4 Red: tests that `GmailClient` fits the new protocol: start cursor is the current history ID, expired history falls back to the date of the newest mail of the account
-- [ ] 5.5 Green: adapt `gmail.py` behind the two methods. Gmail behavior stays the same
+- [x] 5.1 Red: tests with a fake source for the account rules: first run stores the starting point and imports nothing, later run imports new mails and moves the cursor, a store error keeps the old cursor, a second account's cursor is not touched
+- [x] 5.2 Green: change the `MailSource` protocol to the opaque cursor and rewrite `run_sync(conn, account, source)` to match
+- [x] 5.3 Refactor: remove the history ID names from `sync.py`
+- [x] 5.4 Red: tests that `GmailClient` fits the new protocol: start cursor is the current history ID, expired history falls back to the date of the newest mail of the account
+- [x] 5.5 Green: adapt `gmail.py` behind the two methods. Gmail behavior stays the same
 
 ## 6. IMAP client (`imap.py`)
 
@@ -86,5 +86,5 @@
 
 ## 12. Finish
 
-- [ ] 12.1 Run the full test suite with `TEST_DATABASE_URL` and show the result
-- [ ] 12.2 Run `openspec validate multi-account --strict`. Check the README against the final behavior
+- [x] 12.1 Run the full test suite with `TEST_DATABASE_URL` and show the result
+- [x] 12.2 Run `openspec validate multi-account --strict`. Check the README against the final behavior
