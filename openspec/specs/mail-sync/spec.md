@@ -5,18 +5,18 @@ Describes how new Gmail mails are fetched from the Gmail account incrementally a
 ## Requirements
 
 ### Requirement: Initialize from now
-On the very first run, the system SHALL store the current sync point of the Gmail account as the starting point and SHALL NOT import any existing mails.
+On the very first run of an account, the system SHALL store the current sync point of that account as the starting point and SHALL NOT import any existing mails of it.
 
 #### Scenario: First run
-- **WHEN** no sync state exists and the poller runs
-- **THEN** the current sync point is stored and no mail is written to the database
+- **WHEN** no sync state exists for an account and the poller runs
+- **THEN** the current sync point of this account is stored and no mail of it is written to the database
 
 ### Requirement: Incremental fetch of new mails
-On each run, the system SHALL import all mails that arrived in the account since the stored sync point, and then advance the sync point.
+On each run, the system SHALL import, for each account, all mails that arrived since the stored sync point of that account, and then advance that sync point.
 
 #### Scenario: New mails present
-- **WHEN** three new mails arrived since the last run
-- **THEN** three mails are stored and the sync point is set to the latest state
+- **WHEN** three new mails arrived in an account since the last run
+- **THEN** three mails are stored for this account and its sync point is set to the latest state
 
 #### Scenario: No new mails
 - **WHEN** nothing arrived since the last run
