@@ -26,11 +26,11 @@ class FakeNotifier:
         self.messages.append(message)
 
 
-def add(conn, gmail_id, sender="Anna <a@example.org>"):
+def add(conn, gmail_id, sender="Anna <a@example.org>", account="gmail"):
     db.insert_mails(conn, [Mail(
         gmail_id=gmail_id, thread_id="t", internal_date=BASE, from_addr=sender,
         to_addrs="b@example.org", subject="Geheimer Betreff", body_text="Geheimer Text",
-    )])
+    )], account)
 
 
 def analyze(conn, gmail_id, importance="important", version="v1", age_hours=0.0,
@@ -74,7 +74,7 @@ def test_message_holds_no_subject_and_no_body(conn):
     analyze(conn, "m")
     notifier = FakeNotifier()
     run_notification(conn, notifier)
-    assert set(notifier.messages[0]) == {"kind", "category", "importance", "sender", "summary"}
+    assert set(notifier.messages[0]) == {"kind", "account", "category", "importance", "sender", "summary"}
     assert "Geheimer" not in str(notifier.messages)
 
 
@@ -224,3 +224,17 @@ def test_a_second_pass_cannot_run_while_the_first_holds_the_lock(conn):
 def test_a_successful_pass_without_work_records_the_time(conn):
     run_notification(conn, FakeNotifier())
     assert db.last_notifier_ok(conn) is not None
+
+
+def test_each_message_names_the_account_of_its_mail(conn):
+    begin(conn)
+    add(conn, "g1", account="gmail")
+    add(conn, "privat:p1", account="privat")
+    analyze(conn, "g1")
+    analyze(conn, "privat:p1")
+    notifier = FakeNotifier()
+    run_notification(conn, notifier)
+    accounts = {m["account"] for m in notifier.messages}
+    assert accounts == {"gmail", "privat"}
+    by_account = {m["account"]: m for m in notifier.messages}
+    assert by_account["privat"]["summary"] == "Kurz."

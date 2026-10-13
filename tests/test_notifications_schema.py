@@ -53,12 +53,15 @@ def test_notifier_state_holds_one_row(conn):
 
 
 def test_migrating_a_database_with_mails_and_results_keeps_them_unchanged(conn):
-    # The state of the running system: migrations 001 to 003 applied, data present.
+    # The state before migration 004: data present.
     conn.execute("DROP TABLE IF EXISTS notifications, notifier_state, schema_migrations")
     conn.execute("CREATE TABLE schema_migrations (name text PRIMARY KEY)")
     conn.execute("INSERT INTO schema_migrations VALUES ('001_init.sql'), ('002_bulk_flag.sql'), "
-                 "('003_analyses.sql')")
-    add_mail(conn, "old1")
+                 "('003_analyses.sql'), "
+                 "('005_accounts.sql')")
+    # Only migration 004 is replayed here. test_accounts_db replays the others.
+    conn.execute("INSERT INTO messages (account, gmail_id, thread_id, internal_date, body_text) "
+                 "VALUES ('gmail', 'old1', 't', now(), 'x')")
     conn.execute(
         """INSERT INTO analyses (gmail_id, prompt_version, status, category, importance,
                                  summary, reason, model, attempts)

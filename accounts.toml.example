@@ -1,0 +1,28 @@
+# Copy to secrets/accounts.toml and edit. That folder is git-ignored and docker-ignored.
+# The file holds passwords. Never commit it.
+#
+# Names: lowercase letters, digits, "_" and "-". The name is the key in the database,
+# so renaming an account makes it a new account that starts from now.
+
+# The existing Gmail account MUST be named "gmail". The upgrade assigns the stored
+# mails and the sync point to that name.
+[[account]]
+name = "gmail"
+kind = "gmail"
+token = "token.json"            # relative to the folder of this file
+
+# One block per IMAP mailbox (for example Strato).
+[[account]]
+name = "privat"
+kind = "imap"
+host = "imap.strato.de"         # check the name in your Strato customer area
+user = "you@example.org"        # usually the full address
+password = "the-mailbox-password"
+# port = 993                    # optional, TLS only
+
+[[account]]
+name = "firma"
+kind = "imap"
+host = "imap.strato.de"
+user = "work@example.org"
+password = "another-password"

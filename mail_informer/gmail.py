@@ -1,3 +1,5 @@
+import logging
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -6,7 +8,11 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from .parsing import Mail, parse_message
+
+log = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+BATCH_SIZE = 100
 RETRIES = 5  # googleapiclient retries 429/5xx errors with exponential backoff
 
 
@@ -106,3 +112,45 @@ class GmailClient:
             if e.resp.status == 404:
                 return None
             raise
+
+    def start_cursor(self) -> str:
+        """Returns the cursor to start from: the current history ID."""
+        return self.current_history_id()
+
+    def fetch_since(
+        self,
+        cursor: str,
+        fallback_since: datetime,
+        is_known: Callable[[list[str]], set[str]],
+    ) -> Iterator[tuple[list[Mail], str | None]]:
+        """Yields the mails added since the cursor, in batches.
+
+        Batches carry no cursor. The last item is an empty batch with the new history
+        ID, so the cursor moves only after all mails were handed out.
+
+        Args:
+            cursor: The stored history ID.
+            fallback_since: Where to restart if Gmail no longer knows the cursor.
+            is_known: Tells which of the given mail IDs are already stored.
+        """
+        # Read this before fetching. Mails that arrive meanwhile are picked up by the next run.
+        new_history_id = self.current_history_id()
+        try:
+            ids = self.new_message_ids(cursor)
+        except HistoryExpired:
+            log.warning("History ID expired, loading mails since %s", fallback_since)
+            ids = self.message_ids_after(fallback_since)
+        for start in range(0, len(ids), BATCH_SIZE):
+            chunk = ids[start:start + BATCH_SIZE]
+            known = is_known(chunk)
+            mails = []
+            for message_id in chunk:
+                if message_id in known:
+                    continue
+                raw = self.get_message(message_id)
+                if raw is None:  # deleted in the meantime
+                    continue
+                mails.append(parse_message(raw))
+            if mails:
+                yield mails, None
+        yield [], new_history_id

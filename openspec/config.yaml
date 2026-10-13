@@ -2,14 +2,17 @@ schema: spec-driven
 
 # Project context, shown to the AI when it creates artifacts.
 context: |
-  Project: mail_informer. Polls Gmail every 5 minutes and archives new mails
+  Project: mail_informer. Polls several mail accounts (Gmail and IMAP, for example Strato)
+  every 5 minutes and archives new mails
   (metadata + plain-text body) in Postgres. A later stage will analyze them with an LLM.
 
-  Tech stack: Python 3.12, psycopg 3, Gmail API (google-api-python-client),
+  Tech stack: Python 3.12, psycopg 3, Gmail API (google-api-python-client), imaplib,
   Postgres 16, Docker Compose, supercronic, pytest.
 
   Architecture (keep these layers separate):
   - gmail.py: Gmail API access only. No database code.
+  - imap.py: IMAP access only (read-only, INBOX). No database code.
+  - accounts.py: loads and checks the accounts file. No other I/O.
   - parsing.py: pure functions, no I/O.
   - db.py: all SQL. No business logic.
   - sync.py: orchestration. Depends on the MailSource protocol, not on concrete clients.
@@ -17,8 +20,10 @@ context: |
 
   Domain rules:
   - Gmail access is read-only (scope gmail.readonly). Never request wider scopes.
+  - IMAP access is read-only too: read-only SELECT, BODY.PEEK, no flags, no deletes.
+    Passwords come only from the accounts file and never reach logs or the database.
   - Writes must be idempotent (ON CONFLICT DO NOTHING). A run can be repeated safely.
-  - The sync state (history_id) advances only after all mails are stored.
+  - The sync cursor of an account advances only after the mails up to it are stored.
   - Schema changes are new numbered files in mail_informer/migrations/. Never edit
     an applied migration.
   - Never log or commit secrets, tokens, or mail content.

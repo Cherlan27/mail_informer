@@ -11,6 +11,7 @@ class Config:
     database_url: str
     client_secret_path: str
     token_path: str
+    accounts_path: str
     ollama_url: str
     analyzer_model: str
     ha_webhook_url: str
@@ -49,6 +50,7 @@ def load_config(
         database_url=database_url,
         client_secret_path=os.environ.get("CLIENT_SECRET_PATH", "secrets/client_secret.json"),
         token_path=os.environ.get("TOKEN_PATH", "secrets/token.json"),
+        accounts_path=os.environ.get("ACCOUNTS_PATH", "secrets/accounts.toml"),
         ollama_url=os.environ.get("OLLAMA_URL", DEFAULT_OLLAMA_URL),
         analyzer_model=analyzer_model,
         ha_webhook_url=ha_webhook_url,

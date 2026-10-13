@@ -93,3 +93,124 @@ def test_get_message_returns_none_when_deleted():
 
 def test_get_message_returns_payload():
     assert client(messages=Resource({"id": "x"})).get_message("x") == {"id": "x"}
+
+
+# --- the MailSource methods (start_cursor, fetch_since) ---
+
+import base64
+
+from mail_informer import gmail as gmail_module
+
+
+def raw_message(message_id, body="Text"):
+    return {
+        "id": message_id, "threadId": "t", "internalDate": "1700000000000",
+        "labelIds": ["INBOX"], "snippet": "s",
+        "payload": {
+            "mimeType": "text/plain", "filename": "",
+            "headers": [{"name": "Subject", "value": f"Betreff {message_id}"}],
+            "body": {"data": base64.urlsafe_b64encode(body.encode()).decode()},
+        },
+    }
+
+
+class FakeApi:
+    """Replaces the four low-level methods of the client."""
+
+    def __init__(self):
+        self.history_id = "100"
+        self.new_ids: list[str] = []
+        self.expired = False
+        self.after_ids: list[str] = []
+        self.messages: dict[str, dict] = {}
+        self.fetched: list[str] = []
+        self.after_asked: list[datetime] = []
+
+    def install(self, c: GmailClient) -> GmailClient:
+        c.current_history_id = lambda: self.history_id
+
+        def new_message_ids(start):
+            if self.expired:
+                raise HistoryExpired()
+            return list(self.new_ids)
+
+        def message_ids_after(since):
+            self.after_asked.append(since)
+            return list(self.after_ids)
+
+        def get_message(message_id):
+            self.fetched.append(message_id)
+            return self.messages.get(message_id)
+
+        c.new_message_ids = new_message_ids
+        c.message_ids_after = message_ids_after
+        c.get_message = get_message
+        return c
+
+
+SINCE = datetime(2026, 10, 1, tzinfo=timezone.utc)
+
+
+def fetch(api: FakeApi, known=lambda ids: set()):
+    c = api.install(client())
+    return list(c.fetch_since("100", SINCE, known))
+
+
+def test_start_cursor_is_the_current_history_id():
+    api = FakeApi()
+    api.history_id = "777"
+    assert api.install(client()).start_cursor() == "777"
+
+
+def test_fetch_since_returns_parsed_mails_and_the_new_history_id_last():
+    api = FakeApi()
+    api.history_id = "200"
+    api.new_ids = ["a", "b"]
+    api.messages = {"a": raw_message("a"), "b": raw_message("b")}
+    batches = fetch(api)
+    assert [m.gmail_id for m in batches[0][0]] == ["a", "b"]
+    assert batches[0][1] is None  # the history ID moves only after all batches
+    assert batches[-1] == ([], "200")
+
+
+def test_fetch_since_without_news_only_moves_the_cursor():
+    api = FakeApi()
+    api.history_id = "150"
+    assert fetch(api) == [([], "150")]
+
+
+def test_fetch_since_skips_known_mails_without_fetching_them():
+    api = FakeApi()
+    api.new_ids = ["a", "b"]
+    api.messages = {"a": raw_message("a"), "b": raw_message("b")}
+    batches = fetch(api, known=lambda ids: {"a"})
+    assert [m.gmail_id for m in batches[0][0]] == ["b"]
+    assert api.fetched == ["b"]
+
+
+def test_fetch_since_skips_deleted_mails():
+    api = FakeApi()
+    api.new_ids = ["a", "gone"]
+    api.messages = {"a": raw_message("a")}
+    assert [m.gmail_id for m in fetch(api)[0][0]] == ["a"]
+
+
+def test_fetch_since_uses_the_date_query_when_history_expired():
+    api = FakeApi()
+    api.expired = True
+    api.history_id = "900"
+    api.after_ids = ["x", "y"]
+    api.messages = {"x": raw_message("x"), "y": raw_message("y")}
+    batches = fetch(api)
+    assert api.after_asked == [SINCE]
+    assert [m.gmail_id for m in batches[0][0]] == ["x", "y"]
+    assert batches[-1][1] == "900"
+
+
+def test_fetch_since_works_in_batches(monkeypatch):
+    monkeypatch.setattr(gmail_module, "BATCH_SIZE", 2)
+    api = FakeApi()
+    api.new_ids = ["a", "b", "c", "d", "e"]
+    api.messages = {i: raw_message(i) for i in api.new_ids}
+    batches = fetch(api)
+    assert [len(b[0]) for b in batches] == [2, 2, 1, 0]

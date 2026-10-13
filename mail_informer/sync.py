@@ -1,76 +1,70 @@
 import logging
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from typing import Protocol
 
 import psycopg
 
 from . import db
-from .gmail import HistoryExpired
-from .parsing import Mail, parse_message
+from .parsing import Mail
 
 log = logging.getLogger(__name__)
 
 FALLBACK_BUFFER = timedelta(days=1)
-BATCH_SIZE = 100
+
+# Mails to store, and the cursor to save once they are stored (None: keep the old one).
+Batch = tuple[list[Mail], str | None]
 
 
 class MailSource(Protocol):
-    def current_history_id(self) -> str: ...
-    def new_message_ids(self, start_history_id: str) -> list[str]: ...
-    def message_ids_after(self, since: datetime) -> list[str]: ...
-    def get_message(self, message_id: str) -> dict | None: ...
+    """A mailbox the poller can read. The cursor is text that only the source understands."""
+
+    def start_cursor(self) -> str: ...
+
+    def fetch_since(
+        self,
+        cursor: str,
+        fallback_since: datetime,
+        is_known: Callable[[list[str]], set[str]],
+    ) -> Iterator[Batch]: ...
 
 
-def _fetch(gmail: MailSource, conn: psycopg.Connection, ids: list[str]) -> list[Mail]:
-    known = db.existing_ids(conn, ids)
-    mails = []
-    for message_id in ids:
-        if message_id in known:
-            continue
-        raw = gmail.get_message(message_id)
-        if raw is None:  # deleted in the meantime
-            continue
-        mails.append(parse_message(raw))
-    return mails
-
-
-def run_sync(conn: psycopg.Connection, gmail: MailSource) -> int:
-    """Runs one sync.
+def run_sync(conn: psycopg.Connection, account: str, source: MailSource) -> int:
+    """Runs one sync of one account.
 
     The first run only stores the starting point and imports nothing.
-    Later runs import all mails added since the stored history ID.
+    Later runs import the mails added since the stored cursor. The cursor moves only
+    after the mails up to it are stored.
 
     Args:
         conn: Database connection.
-        gmail: Source of mails.
+        account: Name of the account. It keeps the cursor and the mails apart.
+        source: The mailbox of this account.
 
     Returns:
         The number of newly stored mails.
     """
-    state = db.get_sync_state(conn)
-    if state is None:
-        db.set_sync_state(conn, gmail.current_history_id())
-        log.info("Initialized: import starts now, no history")
+    state = db.get_cursor(conn, account)
+    if state is None or state[0] is None:
+        db.set_cursor(conn, account, source.start_cursor())
+        log.info("%s: initialized, import starts now, no history", account)
         return 0
 
-    history_id, updated_at = state
-    # Read this before fetching. Mails that arrive meanwhile are picked up by the next run.
-    new_history_id = gmail.current_history_id()
-    try:
-        ids = gmail.new_message_ids(history_id)
-    except HistoryExpired:
-        since = (db.latest_mail_date(conn) or updated_at) - FALLBACK_BUFFER
-        log.warning("History ID expired, loading mails since %s", since)
-        ids = gmail.message_ids_after(since)
+    cursor, updated_at = state
+    # If the source can no longer use the cursor, it reloads mails since this date.
+    fallback_since = (db.latest_mail_date(conn, account) or updated_at) - FALLBACK_BUFFER
 
-    # Batches limit memory use. The insert is idempotent, so a batch may commit before
-    # the history ID moves. After a crash, the next run fetches the rest and skips
-    # mails that are already stored.
+    # The insert is idempotent, so a batch may commit before the cursor moves. After a
+    # crash, the next run fetches the rest and skips mails that are already stored.
     stored = 0
-    for start in range(0, len(ids), BATCH_SIZE):
-        mails = _fetch(gmail, conn, ids[start:start + BATCH_SIZE])
-        db.insert_mails(conn, mails)
+    batches = source.fetch_since(cursor, fallback_since, lambda ids: db.existing_ids(conn, ids))
+    for mails, new_cursor in batches:
+        db.insert_mails(conn, mails, account)
         stored += len(mails)
-    db.set_sync_state(conn, new_history_id)
-    log.info("%d new mails stored", stored)
+        if new_cursor is not None:
+            db.set_cursor(conn, account, new_cursor)
+    # A source with no news hands out nothing, so no cursor was saved. The run still
+    # succeeded, and the health check looks at this time.
+    db.touch_sync(conn, account)
+    log.info("%s: %d new mails stored", account, stored)
     return stored

@@ -74,3 +74,15 @@ def test_webhook_address_is_read_from_the_environment(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://x")
     monkeypatch.setenv("HA_WEBHOOK_URL", "http://homeassistant:8123/api/webhook/abc")
     assert load_config(require_webhook=True).ha_webhook_url.endswith("/abc")
+
+
+def test_accounts_path_has_a_default(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("ACCOUNTS_PATH", raising=False)
+    assert load_config().accounts_path == "secrets/accounts.toml"
+
+
+def test_accounts_path_can_be_changed(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.setenv("ACCOUNTS_PATH", "/secrets/accounts.toml")
+    assert load_config().accounts_path == "/secrets/accounts.toml"

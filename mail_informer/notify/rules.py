@@ -9,13 +9,16 @@ HOURLY_LIMIT = 10
 MAX_AGE_HOURS = 6
 
 
-def mail_message(category: str, importance: str, sender: str | None, summary: str) -> dict:
+def mail_message(
+    account: str, category: str, importance: str, sender: str | None, summary: str
+) -> dict:
     """Builds the message for one mail.
 
     The message holds no mail ID, no subject, and no body. Sender and summary are
     free text, so they are cleaned and cut.
 
     Args:
+        account: The name of the account that received the mail.
         category: The stored category.
         importance: ``urgent`` or ``important``.
         sender: The ``From`` header text.
@@ -26,6 +29,7 @@ def mail_message(category: str, importance: str, sender: str | None, summary: st
     """
     return {
         "kind": "mail",
+        "account": account,
         "category": category,
         "importance": importance,
         "sender": clean_text(sender or "", SENDER_MAX_CHARS),

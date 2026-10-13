@@ -13,22 +13,22 @@ def mail(gmail_id, importance, minutes=0):
 
 def test_text_loses_control_characters_and_is_cut():
     message = rules.mail_message(
-        "work", "urgent", "Anna\x00 <a@example.org>\x07", "Zeile eins\nZeile zwei\x1b")
+        "privat", "work", "urgent", "Anna\x00 <a@example.org>\x07", "Zeile eins\nZeile zwei\x1b")
     assert message["sender"] == "Anna <a@example.org>"
     assert message["summary"] == "Zeile eins Zeile zwei"
 
 
 def test_sender_is_cut_to_200_and_summary_to_500_characters():
-    message = rules.mail_message("work", "urgent", "s" * 300, "z" * 900)
+    message = rules.mail_message("privat", "work", "urgent", "s" * 300, "z" * 900)
     assert len(message["sender"]) == 200
     assert len(message["summary"]) == 500
 
 
 def test_mail_message_has_exactly_the_allowed_keys():
-    message = rules.mail_message("security", "important", "Bank", "Kurz.")
+    message = rules.mail_message("privat", "security", "important", "Bank", "Kurz.")
     assert message == {
-        "kind": "mail", "category": "security", "importance": "important",
-        "sender": "Bank", "summary": "Kurz.",
+        "kind": "mail", "account": "privat", "category": "security",
+        "importance": "important", "sender": "Bank", "summary": "Kurz.",
     }
 
 

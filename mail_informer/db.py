@@ -21,6 +21,7 @@ class ReportableMail(NamedTuple):
     """An analyzed mail that may be reported to the phone."""
 
     gmail_id: str
+    account: str
     category: str
     importance: str
     sender: str | None
@@ -73,24 +74,52 @@ def migrate(conn: psycopg.Connection) -> None:
         conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATION_LOCK_KEY,))
 
 
-def get_sync_state(conn: psycopg.Connection) -> tuple[str, datetime] | None:
-    """Returns ``(history_id, updated_at)``, or None before the first run."""
-    row = conn.execute("SELECT history_id, updated_at FROM sync_state WHERE id = 1").fetchone()
-    return (row[0], row[1]) if row else None
+def register_account(conn: psycopg.Connection, account: str) -> None:
+    """Creates the sync row of an account, with no cursor, if it does not exist.
 
-
-def set_sync_state(conn: psycopg.Connection, history_id: str) -> None:
-    """Stores the history ID and sets ``updated_at`` to now."""
+    The row exists before the first successful sync, so the health check can see
+    an account that never works.
+    """
     conn.execute(
-        """INSERT INTO sync_state (id, history_id, updated_at) VALUES (1, %s, now())
-           ON CONFLICT (id) DO UPDATE SET history_id = EXCLUDED.history_id, updated_at = now()""",
-        (history_id,),
+        "INSERT INTO sync_state (account, cursor, updated_at) VALUES (%s, NULL, now()) "
+        "ON CONFLICT (account) DO NOTHING",
+        (account,),
     )
 
 
-def latest_mail_date(conn: psycopg.Connection) -> datetime | None:
-    """Returns the date of the newest stored mail, or None if there is none."""
-    return conn.execute("SELECT max(internal_date) FROM messages").fetchone()[0]
+def get_cursor(conn: psycopg.Connection, account: str) -> tuple[str | None, datetime] | None:
+    """Returns ``(cursor, updated_at)``, or None if the account has no row.
+
+    The cursor is None while the account has not stored a starting point.
+    """
+    row = conn.execute(
+        "SELECT cursor, updated_at FROM sync_state WHERE account = %s", (account,)
+    ).fetchone()
+    return (row[0], row[1]) if row else None
+
+
+def set_cursor(conn: psycopg.Connection, account: str, cursor: str) -> None:
+    """Stores the cursor of an account and sets ``updated_at`` to now."""
+    conn.execute(
+        """INSERT INTO sync_state (account, cursor, updated_at) VALUES (%s, %s, now())
+           ON CONFLICT (account) DO UPDATE SET cursor = EXCLUDED.cursor, updated_at = now()""",
+        (account, cursor),
+    )
+
+
+def touch_sync(conn: psycopg.Connection, account: str) -> None:
+    """Sets ``updated_at`` of an account to now, without changing its cursor.
+
+    A run that finds no news still counts as a successful sync.
+    """
+    conn.execute("UPDATE sync_state SET updated_at = now() WHERE account = %s", (account,))
+
+
+def latest_mail_date(conn: psycopg.Connection, account: str) -> datetime | None:
+    """Returns the date of the newest stored mail of an account, or None if there is none."""
+    return conn.execute(
+        "SELECT max(internal_date) FROM messages WHERE account = %s", (account,)
+    ).fetchone()[0]
 
 
 def existing_ids(conn: psycopg.Connection, ids: list[str]) -> set[str]:
@@ -101,17 +130,20 @@ def existing_ids(conn: psycopg.Connection, ids: list[str]) -> set[str]:
     return {r[0] for r in rows}
 
 
-def insert_mails(conn: psycopg.Connection, mails: list[Mail]) -> None:
-    """Stores mails. Mails that already exist are skipped. NUL bytes are removed from the body."""
+def insert_mails(conn: psycopg.Connection, mails: list[Mail], account: str = "gmail") -> None:
+    """Stores mails of one account. Mails that already exist are skipped.
+
+    NUL bytes are removed from the body. The default account keeps older callers working.
+    """
     with conn.cursor() as cur:
         cur.executemany(
             """INSERT INTO messages
-                 (gmail_id, thread_id, internal_date, from_addr, to_addrs, subject,
+                 (account, gmail_id, thread_id, internal_date, from_addr, to_addrs, subject,
                   labels, snippet, body_text, is_bulk)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (gmail_id) DO NOTHING""",
             [
-                (m.gmail_id, m.thread_id, m.internal_date, m.from_addr, m.to_addrs,
+                (account, m.gmail_id, m.thread_id, m.internal_date, m.from_addr, m.to_addrs,
                  m.subject, m.labels, m.snippet, m.body_text.replace("\x00", ""),
                  m.is_bulk)
                 for m in mails
@@ -119,10 +151,19 @@ def insert_mails(conn: psycopg.Connection, mails: list[Mail]) -> None:
         )
 
 
-def last_sync_at(conn: psycopg.Connection) -> datetime | None:
-    """Returns the time of the last successful sync, or None before the first run."""
-    row = conn.execute("SELECT updated_at FROM sync_state WHERE id = 1").fetchone()
-    return row[0] if row else None
+def oldest_sync_at(conn: psycopg.Connection, accounts: list[str]) -> datetime | None:
+    """Returns the oldest successful sync time among the given accounts.
+
+    Returns None if the list is empty or any of the accounts has no row.
+    """
+    if not accounts:
+        return None
+    rows = conn.execute(
+        "SELECT updated_at FROM sync_state WHERE account = ANY(%s)", (accounts,)
+    ).fetchall()
+    if len(rows) < len(set(accounts)):
+        return None
+    return min(r[0] for r in rows)
 
 
 _UNANALYZED = """FROM messages m
@@ -268,7 +309,7 @@ def pick_reportable(
 ) -> list[ReportableMail]:
     """Returns analyzed mails that should be reported and are not recorded yet."""
     rows = conn.execute(
-        f"""SELECT l.gmail_id, l.category, l.importance, m.from_addr, l.summary, l.updated_at
+        f"""SELECT l.gmail_id, m.account, l.category, l.importance, m.from_addr, l.summary, l.updated_at
             {_REPORTABLE}""",
         {"start": start_at, "hours": max_age_hours},
     )
