@@ -2,7 +2,7 @@
 
 Polls your mail accounts every 5 minutes (one Gmail account plus any number of IMAP mailboxes, e.g. Strato) and archives new mails (metadata + plain text) in Postgres. No backfill of old mails.
 
-- **analyzer**: rates every mail with a local model (Ollama): category, importance, and a short German summary for `urgent` mails. Mail text never leaves your machine.
+- **analyzer**: rates every mail with a model: category, importance, and a short German summary for `urgent` mails. Any server with the OpenAI chat completions API works. By default this is Ollama on your machine, and mail text never leaves it. A cloud model is possible, but only if you allow it (see 2b).
 - **notifier**: sends each new `urgent` or `important` mail to your phone via a Home Assistant webhook (account, category, importance, sender, summary).
 
 ## Setup
@@ -19,7 +19,7 @@ Polls your mail accounts every 5 minutes (one Gmail account plus any number of I
 copy .env.example .env     # set POSTGRES_PASSWORD
 ```
 
-`ANALYZER_MODEL` is required (default `qwen3.5:4b`). `OLLAMA_URL` defaults to `http://host.docker.internal:11434`.
+`ANALYZER_MODEL` is required (default `qwen3.5:4b`). `MODEL_URL` defaults to `http://host.docker.internal:11434/v1` (Ollama). For Ollama also set `MODEL_REASONING_EFFORT=none` (see 2b). The old `OLLAMA_URL` is gone: if it is still set, the analyzer refuses to start. Replace it with `MODEL_URL` (same address plus `/v1`).
 
 ### 2a. Mail accounts
 
@@ -34,9 +34,14 @@ Accounts live in `secrets/accounts.toml` (copy `accounts.toml.example`; the fold
 
 ### 2b. Ollama (once, on the host)
 
-1. Install Ollama and run `ollama pull qwen3.5:4b`.
+1. Install Ollama and run `ollama pull qwen3.5:4b`. Set `OLLAMA_KEEP_ALIVE=10m` on the Ollama host and restart it, so the model stays loaded between the 5-minute passes. In `.env` set `MODEL_REASONING_EFFORT=none`: through `/v1`, Ollama lets `qwen3.5` think, which is about ten times slower and can run into the timeout.
 2. `ollama run qwen3.5:4b hi`, then `ollama ps` should show `100% GPU`.
 3. `docker run --rm curlimages/curl curl -s http://host.docker.internal:11434/` should print `Ollama is running`. If not, set `OLLAMA_HOST=0.0.0.0` and restrict port 11434 to local traffic.
+
+To use another server (vLLM, llama.cpp, a cloud service), set `MODEL_URL`, `ANALYZER_MODEL` and, if needed, `MODEL_API_KEY` (a secret; keep it in `.env`). Leave `MODEL_REASONING_EFFORT` empty unless the server knows `reasoning_effort`; some answer an error.
+
+- A server on this machine or at a private IP address (`192.168.x.x`, `10.x.x.x`, ...) needs nothing more. Give a LAN server by its IP: a host name like `nas.fritz.box` counts as remote.
+- Any other address is **remote**. With a remote server, the sender, subject and first part of every mail body go to that service. It only starts if you set `ALLOW_REMOTE_MODEL=true` and `MODEL_URL` starts with `https://`. Run `evaluate` with the model first.
 
 ### 2c. Home Assistant (once)
 
@@ -126,7 +131,8 @@ docker compose exec postgres psql -U mail_informer -c "SELECT n.created_at, m.ac
 
 ```
 set DATABASE_URL=postgresql://mail_informer:<password>@127.0.0.1:5432/mail_informer
-set OLLAMA_URL=http://localhost:11434
+set MODEL_URL=http://localhost:11434/v1
+set MODEL_REASONING_EFFORT=none
 .venv\Scripts\python -m mail_informer evaluate --model qwen3.5:4b
 ```
 
@@ -135,7 +141,7 @@ A model qualifies only if it misses no `urgent` mail. First-round results: `open
 ## Operations
 
 - `docker compose ps` shows a service as `unhealthy` when it has work but no successful pass for too long: poller (an account without sync for 15 min), analyzer and notifier (30 min). An idle service stays healthy.
-- Ollama down: the pass fails with `Model server unavailable`; nothing is marked `failed` and the analyzer recovers on its own.
+- Model server down, wrong key or rate limit: the pass fails with `Model server unavailable`; nothing is marked `failed` and the analyzer recovers on its own. A refused or cut-off answer counts as a failed attempt for that one mail.
 - Home Assistant down: the pass fails with `Home Assistant unavailable`; nothing is recorded and the next pass retries until the 6-hour limit. A crash between sending and recording resends that one message.
 - Rollback of multi-account: restore the dump from before the upgrade and run the old image. By hand, if only `gmail` has data (in `psql`; deletes IMAP mails and their sync points first):
   `DELETE FROM messages WHERE account <> 'gmail'; DELETE FROM sync_state WHERE account <> 'gmail'; ALTER TABLE sync_state ADD COLUMN id integer; UPDATE sync_state SET id = 1; ALTER TABLE sync_state DROP CONSTRAINT sync_state_pkey, DROP COLUMN account, ALTER COLUMN id SET NOT NULL, ADD PRIMARY KEY (id), ADD CHECK (id = 1); ALTER TABLE sync_state RENAME COLUMN cursor TO history_id; ALTER TABLE sync_state ALTER COLUMN history_id SET NOT NULL; ALTER TABLE messages DROP COLUMN account; DELETE FROM schema_migrations WHERE name = '005_accounts.sql';`

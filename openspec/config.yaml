@@ -4,7 +4,8 @@ schema: spec-driven
 context: |
   Project: mail_informer. Polls several mail accounts (Gmail and IMAP, for example Strato)
   every 5 minutes and archives new mails
-  (metadata + plain-text body) in Postgres. A later stage will analyze them with an LLM.
+  (metadata + plain-text body) in Postgres. An analyzer rates them with an LLM through an
+  OpenAI-compatible API (local Ollama by default; a remote server only with an explicit setting).
 
   Tech stack: Python 3.12, psycopg 3, Gmail API (google-api-python-client), imaplib,
   Postgres 16, Docker Compose, supercronic, pytest.

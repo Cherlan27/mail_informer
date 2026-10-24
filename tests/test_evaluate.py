@@ -165,7 +165,7 @@ def test_evaluate_command_prints_the_report_and_returns_0(conn, tmp_path, monkey
         seen["name"] = name
         return FakeModel({"a": ("work", "normal")})
 
-    monkeypatch.setattr(cli, "OllamaClient", factory)
+    monkeypatch.setattr(cli, "OpenAICompatibleClient", factory)
     assert cli.main(["evaluate", "--labels", str(f), "--model", "other-model"]) == 0
     assert seen["name"] == "other-model"
     assert "other-model" in capsys.readouterr().out

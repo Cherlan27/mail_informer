@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from . import db
 from .analysis.analyzer import MAX_ATTEMPTS, run_analysis
 from .analysis.evaluate import evaluate, format_report, load_labels
-from .analysis.model import ModelUnavailable, OllamaClient
+from .analysis.model import ModelUnavailable, OpenAICompatibleClient
 from .analysis.prompts import PROMPT_VERSION
 from .accounts import Account, load_accounts
 from .auth import authorize
@@ -91,9 +91,15 @@ def _health(cfg) -> int:
     return 0
 
 
+def _open_model(cfg, name: str) -> OpenAICompatibleClient:
+    """Builds the client for the configured model server."""
+    return OpenAICompatibleClient(
+        cfg.model_url, name, cfg.model_api_key, cfg.model_reasoning_effort)
+
+
 def _analyze(cfg) -> int:
     """Runs one analyzer pass. Returns 1 if the model server is unavailable."""
-    model = OllamaClient(cfg.ollama_url, cfg.analyzer_model)
+    model = _open_model(cfg, cfg.analyzer_model)
     with db.connect(cfg.database_url) as conn:
         db.migrate(conn)
         try:
@@ -144,7 +150,7 @@ def _evaluate(cfg, labels_path: str, model_name: str | None) -> int:
     name = model_name or cfg.analyzer_model
     if not name:
         raise RuntimeError("Give --model or set ANALYZER_MODEL")
-    model = OllamaClient(cfg.ollama_url, name)
+    model = _open_model(cfg, name)
     labels = load_labels(labels_path)
     with db.connect(cfg.database_url) as conn:
         print(format_report(evaluate(conn, model, labels), name))
@@ -172,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
             require_database=args.command != "auth",
             require_model=args.command == "analyze",
             require_webhook=args.command == "notify",
+            require_model_server=args.command in ("analyze", "evaluate"),
         )
         if args.command == "auth":
             authorize(cfg.client_secret_path, cfg.token_path)
