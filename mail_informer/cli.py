@@ -94,7 +94,8 @@ def _health(cfg) -> int:
 def _open_model(cfg, name: str) -> OpenAICompatibleClient:
     """Builds the client for the configured model server."""
     return OpenAICompatibleClient(
-        cfg.model_url, name, cfg.model_api_key, cfg.model_reasoning_effort)
+        cfg.model_url, name,
+        api_key=cfg.model_api_key, reasoning_effort=cfg.model_reasoning_effort)
 
 
 def _analyze(cfg) -> int:

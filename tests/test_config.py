@@ -1,6 +1,6 @@
 import pytest
 
-from mail_informer.config import is_local_model_url, load_config
+from mail_informer.config import load_config
 
 
 def test_missing_database_url_fails_early(monkeypatch):
@@ -150,31 +150,6 @@ def test_accounts_path_can_be_changed(monkeypatch):
     assert load_config().accounts_path == "/secrets/accounts.toml"
 
 
-@pytest.mark.parametrize("url", [
-    "http://localhost:11434/v1",
-    "http://127.0.0.1:11434/v1",
-    "http://[::1]:11434/v1",
-    "http://host.docker.internal:11434/v1",
-    "http://192.168.1.5:8000/v1",
-    "http://10.0.0.2/v1",
-    "http://172.16.0.1/v1",
-    "http://169.254.1.1/v1",
-])
-def test_local_model_addresses(url):
-    assert is_local_model_url(url) is True
-
-
-@pytest.mark.parametrize("url", [
-    "https://api.openai.com/v1",
-    "http://nas.fritz.box:8000/v1",
-    "http://8.8.8.8/v1",
-    "http://172.32.0.1/v1",
-    "https://localhost.evil.example/v1",
-])
-def test_remote_model_addresses(url):
-    assert is_local_model_url(url) is False
-
-
 def test_remote_address_without_permission_fails(monkeypatch):
     _clear_model_env(monkeypatch)
     monkeypatch.setenv("MODEL_URL", "https://api.openai.com/v1")
@@ -217,3 +192,10 @@ def test_remote_address_error_does_not_show_the_key(monkeypatch):
         load_config(require_model_server=True)
     assert "sk-very-secret" not in str(error.value)
     assert "pw-secret" not in str(error.value)
+
+
+def test_address_that_is_not_http_fails(monkeypatch):
+    _clear_model_env(monkeypatch)
+    monkeypatch.setenv("MODEL_URL", "ftp://127.0.0.1/v1")
+    with pytest.raises(RuntimeError, match="http"):
+        load_config(require_model_server=True)

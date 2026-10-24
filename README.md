@@ -41,7 +41,7 @@ Accounts live in `secrets/accounts.toml` (copy `accounts.toml.example`; the fold
 To use another server (vLLM, llama.cpp, a cloud service), set `MODEL_URL`, `ANALYZER_MODEL` and, if needed, `MODEL_API_KEY` (a secret; keep it in `.env`). Leave `MODEL_REASONING_EFFORT` empty unless the server knows `reasoning_effort`; some answer an error.
 
 - A server on this machine or at a private IP address (`192.168.x.x`, `10.x.x.x`, ...) needs nothing more. Give a LAN server by its IP: a host name like `nas.fritz.box` counts as remote.
-- Any other address is **remote**. With a remote server, the sender, subject and first part of every mail body go to that service. It only starts if you set `ALLOW_REMOTE_MODEL=true` and `MODEL_URL` starts with `https://`. Run `evaluate` with the model first.
+- Any other address is **remote**. With a remote server, the sender, subject and first part of every mail body go to that service. It only starts if you set `ALLOW_REMOTE_MODEL=true` and `MODEL_URL` starts with `https://`. Redirects of the model server are never followed, so the key cannot be passed on to another host. Run `evaluate` with the model first.
 
 ### 2c. Home Assistant (once)
 

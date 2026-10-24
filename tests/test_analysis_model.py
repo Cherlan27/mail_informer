@@ -24,15 +24,21 @@ def completion(content='{"summary": "ok"}', finish_reason="stop", refusal=None) 
 class FakeServer:
     """A tiny local HTTP server that plays the role of an OpenAI-compatible server."""
 
-    def __init__(self, status=200, payload=None, raw=None, delay=0.0):
+    def __init__(self, status=200, payload=None, raw=None, delay=0.0, headers=None):
         self.status = status
         self.payload = completion() if payload is None else payload
         self.raw = raw
         self.delay = delay
+        self.headers = headers or {}
         self.requests: list[dict] = []
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                outer.requests.append({"path": self.path, "authorization": self.headers.get("Authorization")})
+                self.send_response(200)
+                self.end_headers()
+
             def do_POST(self):
                 body = self.rfile.read(int(self.headers["Content-Length"]))
                 outer.requests.append({
@@ -43,6 +49,8 @@ class FakeServer:
                 time.sleep(outer.delay)
                 data = outer.raw if outer.raw is not None else json.dumps(outer.payload).encode()
                 self.send_response(outer.status)
+                for name, value in outer.headers.items():
+                    self.send_header(name, value)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(data)
@@ -52,7 +60,9 @@ class FakeServer:
 
         self.server = HTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_port}/v1"
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        # A short poll interval lets shutdown() return at once instead of after 0.5 s.
+        threading.Thread(
+            target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
 
     def close(self):
         self.server.shutdown()
@@ -157,6 +167,15 @@ def test_body_that_is_not_json_means_model_unavailable(server):
     s = server(raw=b"hello")
     with pytest.raises(ModelUnavailable):
         OpenAICompatibleClient(s.url, "m").chat_json(MESSAGES, SCHEMA)
+
+
+@pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
+def test_redirect_is_not_followed(server, status):
+    target = server()
+    s = server(status=status, headers={"Location": target.url + "/chat/completions"})
+    with pytest.raises(ModelUnavailable, match=str(status)):
+        OpenAICompatibleClient(s.url, "m", api_key="sk-secret").chat_json(MESSAGES, SCHEMA)
+    assert target.requests == []
 
 
 def test_refusal_is_an_invalid_answer(server):

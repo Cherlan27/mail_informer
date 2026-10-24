@@ -79,7 +79,7 @@ If the model server cannot be reached, answers with an error status, rejects the
 - **THEN** the run ends with an error, no mail is marked failed, and the next run tries again
 
 ### Requirement: Mail content goes only to the configured model server
-The system SHALL send mail content only to the one configured model server. It SHALL NOT send mail content to any other service. By default the model server SHALL be local: on this machine (loopback or the Docker host name) or at a private network IP address. The system SHALL use a model server at any other address only if remote use is explicitly allowed by a setting. A remote model server SHALL be reached over HTTPS only. These checks SHALL run before any mail is read.
+The system SHALL send mail content only to the one configured model server. It SHALL NOT send mail content to any other service. By default the model server SHALL be local: on this machine (loopback or the Docker host name) or at a private network IP address. The system SHALL use a model server at any other address only if remote use is explicitly allowed by a setting. A remote model server SHALL be reached over HTTPS only. The address SHALL use `http` or `https`. The system SHALL NOT follow redirects of the model server. These checks SHALL run before any mail is read.
 
 #### Scenario: Configuration
 - **WHEN** the analyzer starts
@@ -100,3 +100,11 @@ The system SHALL send mail content only to the one configured model server. It S
 #### Scenario: Remote server without HTTPS
 - **WHEN** remote use is allowed but the configured remote address starts with `http://`
 - **THEN** the analyzer refuses to start
+
+#### Scenario: Address is not HTTP
+- **WHEN** the configured address uses a scheme other than `http` or `https`
+- **THEN** the analyzer refuses to start
+
+#### Scenario: Server redirects
+- **WHEN** the model server answers a request with a redirect to another address
+- **THEN** the redirect is not followed, neither mail content nor the access key is sent to the other address, and the run ends as "model server unavailable"

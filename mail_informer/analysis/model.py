@@ -13,6 +13,20 @@ MAX_ERROR_BODY = 4096
 BAD_FINISH_REASONS = ("length", "content_filter")
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuses every redirect, so the 3xx answer becomes an ``HTTPError``.
+
+    urllib would resend the ``Authorization`` header to the new host, also from
+    https to http, and a local server could pass the request on to a remote one.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 class ModelUnavailable(Exception):
     """The model server cannot be reached, rejects the request, or does not answer correctly.
 
@@ -74,8 +88,8 @@ class OpenAICompatibleClient:
 
         Raises:
             ModelUnavailable: If the server cannot be reached, times out, returns an
-                error status (also for a wrong key or a rate limit), or sends a
-                response without a message.
+                error status (also for a wrong key or a rate limit), redirects, or
+                sends a response without a message.
             InvalidAnswer: If the model refused, the answer was cut off, or the answer
                 is not valid JSON.
         """
@@ -97,7 +111,7 @@ class OpenAICompatibleClient:
             headers["Authorization"] = f"Bearer {self._api_key}"
         request = urllib.request.Request(self._url, data=body, headers=headers)
         try:
-            with urllib.request.urlopen(request, timeout=self._timeout) as response:
+            with _OPENER.open(request, timeout=self._timeout) as response:
                 payload = json.load(response)
         except urllib.error.HTTPError as e:
             raise ModelUnavailable(_http_error_text(e)) from e

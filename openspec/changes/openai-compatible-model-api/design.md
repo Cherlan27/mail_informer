@@ -76,15 +76,23 @@ If `OLLAMA_URL` is set and `MODEL_URL` is not, `load_config` fails for `analyze`
 
 ### 5. Local or remote
 
-A pure function `is_local_model_url(url) -> bool` in `config.py` decides from the URL alone:
+A pure module `mail_informer/analysis/server_address.py` holds the rule and its constants: `is_local(url) -> bool` and `check(url, allow_remote)`, which raises on a bad address. `config.py` only reads the environment and calls `check`. The rule is a privacy rule of the analysis, not a setting, so it does not belong in `config.py`.
+
+- *Rejected: one shared `constants.py`.* Constants stay next to the rule that uses them, as elsewhere in the project (`SEED`, `MAX_SYNC_AGE`, `MAX_AGE_HOURS`). A shared file would couple unrelated modules.
+
+`is_local` decides from the URL alone:
 
 - local: host is `localhost`, `host.docker.internal`, or a literal IP address that is loopback, private (10/8, 172.16/12, 192.168/16, fc00::/7) or link-local;
 - remote: every other host name or IP address.
 
-`load_config` runs the check when the command needs the model server (`analyze`, `evaluate`): remote without `ALLOW_REMOTE_MODEL=true` fails; remote with `http://` fails even when allowed, because the key and mail text would cross the internet in plain text. The check happens before the database is opened, so no mail is read.
+`load_config` runs the check when the command needs the model server (`analyze`, `evaluate`): a scheme other than `http`/`https` fails; remote without `ALLOW_REMOTE_MODEL=true` fails; remote with `http://` fails even when allowed, because the key and mail text would cross the internet in plain text. The check happens before the database is opened, so no mail is read.
 
 - *Rejected: resolve the host name and check the IP.* The answer can change between check and request, and split DNS makes it unreliable. A LAN server with a host name (for example `nas.fritz.box`) must be given by its IP, or be allowed as remote over HTTPS. The README says so.
 - *Rejected: no guard, the URL alone is the decision.* The spec promised local-only so far. A typo or a copied example `.env` should not send mail to a cloud service.
+
+### 5a. No redirects
+
+The client does not follow HTTP redirects; a 3xx answer is `ModelUnavailable`. `urllib` follows redirects by default and resends the `Authorization` header to the new host, also from `https` to `http`. A local server could also send the request on to a remote host and get around the check of decision 5. The OpenAI API and Ollama do not redirect `/chat/completions`, so nothing that works today breaks.
 
 ### 6. Wiring
 

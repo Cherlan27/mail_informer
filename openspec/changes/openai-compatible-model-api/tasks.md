@@ -49,7 +49,15 @@
 - [x] 6.3 Start the analyzer with a public `MODEL_URL` and no `ALLOW_REMOTE_MODEL`. Check that it fails at start and reads no mail
 - [ ] 6.4 Optional, with a cloud key: run `evaluate` against one cloud model with `ALLOW_REMOTE_MODEL=true` and check that strict schema answers come back
 
-## 7. Finish
+## 7. Review fixes
 
-- [x] 7.1 Run the full test suite with `TEST_DATABASE_URL` and show the result
-- [x] 7.2 Run `openspec validate openai-compatible-model-api --strict`. Check the README against the final behavior
+- [x] 7.1 Red: test that a redirect from the model server is not followed, the redirect target sees no request and no key, and the client raises `ModelUnavailable`
+- [x] 7.2 Green: build the client with an opener that does not follow redirects
+- [x] 7.3 Red: tests for `analysis/server_address.py`: local and remote table (moved from `test_config.py`), `HTTPS://` in capitals counts as HTTPS, `ftp://` and `file://` addresses are refused
+- [x] 7.4 Green: move `LOCAL_HOSTS`, the local test and the remote/HTTPS checks from `config.py` to `analysis/server_address.py`; check the scheme with `urlparse`; `config.py` only calls it
+- [x] 7.5 Refactor: pass keyword arguments in `cli._open_model`; let the fake servers in the model tests stop fast (`poll_interval`)
+
+## 8. Finish
+
+- [x] 8.1 Run the full test suite with `TEST_DATABASE_URL` and show the result
+- [x] 8.2 Run `openspec validate openai-compatible-model-api --strict`. Check the README against the final behavior

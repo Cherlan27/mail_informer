@@ -1,34 +1,9 @@
-import ipaddress
 import os
 from dataclasses import dataclass, field
-from urllib.parse import urlparse
+
+from .analysis import server_address
 
 DEFAULT_MODEL_URL = "http://host.docker.internal:11434/v1"
-
-LOCAL_HOSTS = ("localhost", "host.docker.internal")
-
-
-def is_local_model_url(url: str) -> bool:
-    """Tells if a model server address is on this machine or in a private network.
-
-    The decision uses the address text only. It makes no DNS lookup, because the
-    answer of a lookup can change between the check and the request.
-
-    Args:
-        url: Base address of the model server.
-
-    Returns:
-        True for ``localhost``, ``host.docker.internal``, and IP addresses that are
-        loopback, private, or link-local. False for every other host name or address.
-    """
-    host = urlparse(url).hostname or ""
-    if host in LOCAL_HOSTS:
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return ip.is_loopback or ip.is_private or ip.is_link_local
 
 
 @dataclass(frozen=True)
@@ -61,9 +36,8 @@ def load_config(
         require_model: If True, fail when ``ANALYZER_MODEL`` is missing.
         require_webhook: If True, fail when ``HA_WEBHOOK_URL`` is missing or not an HTTP address.
         require_model_server: If True, check the model server settings: fail when the
-            old ``OLLAMA_URL`` is set without ``MODEL_URL``, when a remote address is
-            used without ``ALLOW_REMOTE_MODEL=true``, or when a remote address is not
-            ``https://``.
+            old ``OLLAMA_URL`` is set without ``MODEL_URL``, or when mail text may not
+            be sent to ``MODEL_URL`` (see ``analysis.server_address.check``).
 
     Returns:
         The loaded settings.
@@ -83,14 +57,11 @@ def load_config(
             "with /v1 added, for example http://localhost:11434/v1")
     model_url = os.environ.get("MODEL_URL", DEFAULT_MODEL_URL)
     allow_remote_model = os.environ.get("ALLOW_REMOTE_MODEL", "") == "true"
-    if require_model_server and not is_local_model_url(model_url):
-        # The messages do not repeat the address: it may hold a user name and password.
-        if not allow_remote_model:
-            raise RuntimeError(
-                "MODEL_URL is not a local address. Mail text would leave this network. "
-                "Set ALLOW_REMOTE_MODEL=true to allow it")
-        if not model_url.startswith("https://"):
-            raise RuntimeError("A remote MODEL_URL must start with https://")
+    if require_model_server:
+        try:
+            server_address.check(model_url, allow_remote_model)
+        except ValueError as e:
+            raise RuntimeError(f"MODEL_URL is refused: {e}") from e
     ha_webhook_url = os.environ.get("HA_WEBHOOK_URL", "")
     if require_webhook:
         if not ha_webhook_url:
