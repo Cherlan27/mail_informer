@@ -45,8 +45,15 @@ services:
       RUN_COMMAND: analyze
       CRONTAB: /app/crontab.analyzer
       ANALYZER_MODEL: ${ANALYZER_MODEL:?set ANALYZER_MODEL in .env}
-      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
-    # The model server runs on the host. This also makes the name work on Linux.
+      MODEL_URL: ${MODEL_URL:-http://host.docker.internal:11434/v1}
+      # The key is a secret. Keep it in .env.
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+      # Empty: not sent. Ollama needs 'none' for models that think (see README).
+      MODEL_REASONING_EFFORT: ${MODEL_REASONING_EFFORT:-}
+      ALLOW_REMOTE_MODEL: ${ALLOW_REMOTE_MODEL:-false}
+      # Old setting. Passed on only so that the analyzer can refuse to start with it.
+      OLLAMA_URL: ${OLLAMA_URL:-}
+    # The default model server (Ollama) runs on the host. This also makes the name work on Linux.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # No secrets volume: the analyzer has no Gmail token and cannot reach the mailbox.

@@ -37,11 +37,11 @@ def env(monkeypatch, conn):
 def use_model(monkeypatch, model):
     seen = {}
 
-    def factory(url, name, *args, **kwargs):
-        seen.update(url=url, name=name)
+    def factory(url, name, api_key="", reasoning_effort="", **kwargs):
+        seen.update(url=url, name=name, api_key=api_key, reasoning_effort=reasoning_effort)
         return model
 
-    monkeypatch.setattr(cli, "OllamaClient", factory)
+    monkeypatch.setattr(cli, "OpenAICompatibleClient", factory)
     return seen
 
 
@@ -53,10 +53,14 @@ def test_analyze_returns_0_and_stores_results(env, monkeypatch):
 
 
 def test_analyze_uses_the_configured_server_address(env, monkeypatch):
-    monkeypatch.setenv("OLLAMA_URL", "http://example.invalid:1234")
+    monkeypatch.setenv("MODEL_URL", "http://192.168.1.5:1234/v1")
+    monkeypatch.setenv("MODEL_API_KEY", "sk-abc")
+    monkeypatch.setenv("MODEL_REASONING_EFFORT", "none")
     seen = use_model(monkeypatch, StubModel())
     cli.main(["analyze"])
-    assert seen["url"] == "http://example.invalid:1234"
+    assert seen["url"] == "http://192.168.1.5:1234/v1"
+    assert seen["api_key"] == "sk-abc"
+    assert seen["reasoning_effort"] == "none"
 
 
 def test_analyze_returns_1_when_the_model_server_is_unavailable(env, monkeypatch):
