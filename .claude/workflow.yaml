@@ -1,0 +1,56 @@
+# .claude/workflow.yaml: the contract between this project and the agent-workflow plugin.
+# The plugin skills read this file. Everything project-specific lives here.
+version: 1
+
+# Command that must pass at the end of apply and fixes (run twice in a row).
+# Runs pytest and openspec validate --all --strict.
+check: make check
+
+# Run once in a fresh worktree before tests or dev servers.
+setup: "pip install -c constraints.txt -e .[dev]"
+
+base_branch: main
+branch_pattern: "issue-<n>-<short-name>"   # a "<user>/" prefix added by Orca is accepted
+
+# Agent and model per phase. `apply_local` is optional (Small track only).
+models:
+  propose: { agent: claude, model: opus }
+  apply:   { agent: claude, model: sonnet }
+  apply_local: { agent: opencode, model: "ollama/qwen3.8:27b" }
+  review:  { agent: claude, model: opus }
+  fix:     { agent: claude, model: sonnet }
+  ship:    { agent: claude, model: sonnet }
+
+tracks:
+  small:
+    max_tasks: 5
+    one_side_only: true          # one area only: poller, analyzer, or notifier
+    forbid: [adr, new_dependency, migration]
+  trivial:
+    max_files: 2
+    allowed_paths: ["docs/", "*.md", ".github/", "openspec/config.yaml"]
+    forbidden_paths: ["mail_informer/", "tests/", "pyproject.toml", "constraints.txt"]
+
+# Restart the running local services (poller, analyzer, notifier).
+deploy:
+  approval_required: true        # always ask the human; deploy restarts shared services
+  command: "docker compose up -d --build"
+  health_check: "docker compose ps"
+  needs_docker_locally: true     # tests need Postgres via docker; Orca checks `docker info` before apply
+
+# Only one worktree may bind the local Postgres at a time.
+shared_ports: [5432]
+
+# docs/adr is created with the first ADR.
+docs:
+  adr_dir: docs/adr
+
+# Extra review checks for this project (added to the generic checklist).
+review:
+  extra_checks:
+    - "Layering: gmail.py and imap.py are I/O only; parsing.py has no I/O; db.py holds all SQL (no business logic); sync.py depends on the MailSource protocol, not concrete clients; cli.py is entry point and wiring only."
+    - "Gmail and IMAP stay read-only (gmail.readonly scope; IMAP read-only SELECT + BODY.PEEK, no flags, no deletes). No new or wider scopes."
+    - "Writes are idempotent (ON CONFLICT DO NOTHING). A run must be safely repeatable."
+    - "Schema changes are new numbered files in mail_informer/migrations/; never edit an applied migration."
+    - "Secrets (tokens, passwords, mail content) never reach logs, the database, or a commit."
+    - "New dependencies only with a reason; pinned in constraints.txt. Config comes from environment variables (12-factor); fail early if a required value is missing."
