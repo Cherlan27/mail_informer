@@ -11,25 +11,24 @@ A review here is not done when it lists findings. It ends with each finding prov
 
 ## Steps
 
-1. **Collect every comment.** `gh pr view <n> --comments` does not show a review that is still pending (draft). Also run:
+1. **Collect every comment.** `gh pr view <n> --comments` does not show a review that is still pending (draft). Also run (`gh` fills in `{owner}` and `{repo}` from the current repo):
    ```bash
-   gh api repos/<owner>/<repo>/pulls/<n>/reviews --jq '.[] | {id, state, user: .user.login}'
-   gh api repos/<owner>/<repo>/pulls/<n>/reviews/<id>/comments --jq '.[] | {path, diff_hunk, body}'
-   gh api repos/<owner>/<repo>/pulls/<n>/comments   # submitted line comments
+   gh api 'repos/{owner}/{repo}/pulls/<n>/reviews' --jq '.[] | {id, state, user: .user.login}'
+   gh api 'repos/{owner}/{repo}/pulls/<n>/reviews/<id>/comments' --jq '.[] | {path, diff_hunk, body}'
+   gh api 'repos/{owner}/{repo}/pulls/<n>/comments'   # submitted line comments
    ```
 2. **Read whole files, not only diff hunks.** Use `git diff main` and read each changed module in full.
 3. **Review against the checklist below.** Prove each suspected bug with a short script or a failing test before you report it.
 4. **Report** one table: number, severity, finding, fix. Answer each reviewer comment with a decision and a reason. When you disagree in part, say what you do instead and why.
-5. **Record in OpenSpec.** If behavior changes, add a scenario to the delta spec and a decision to `design.md`. Add a "Review fixes" task group with red/green/refactor tasks. Run `openspec validate <change> --strict`.
+5. **Record in OpenSpec**, if the PR has a change under `openspec/changes/`. A PR without one (e.g. a `chore:`) skips this step. If behavior changes, add a scenario to the delta spec and a decision to `design.md`. Add a "Review fixes" task group with red/green/refactor tasks. Run `openspec validate <change> --strict`.
 6. **Fix test-first.** Watch each test fail for the right reason. Do refactors only while the suite is green.
 7. **Run the full suite with Postgres** on a throwaway container. **Never** use the live database on port 5432: the test fixture drops all tables.
    ```bash
    docker run -d --rm --name mi-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_USER=mail_informer \
      -e POSTGRES_DB=mail_informer_test -p 127.0.0.1:55432:5432 postgres:16
-   TEST_DATABASE_URL=postgresql://mail_informer:test@127.0.0.1:55432/mail_informer_test .venv/Scripts/python -m pytest -q
-   docker stop mi-test-pg
+   TEST_DATABASE_URL=postgresql://mail_informer:test@127.0.0.1:55432/mail_informer_test .venv/Scripts/python -m pytest -q; docker stop mi-test-pg
    ```
-   The result must say **0 skipped**. Skipped DB tests hide broken stubs.
+   The `;` stops the container even when pytest fails. If `docker run` reports the name `mi-test-pg` is in use, an earlier run was aborted: run `docker stop mi-test-pg` first. The result must say **0 skipped**. Skipped DB tests hide broken stubs.
 8. **Commit and answer.** Use conventional commits (`fix:`, `refactor:`, `docs:`). Push to the PR branch. Post one PR comment with the table and the answers. A pending review cannot get thread replies until its author submits it, so quote the comment in your PR comment.
 
 ## Checklist
