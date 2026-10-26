@@ -37,13 +37,19 @@ context: |
   - Comments explain why, not what.
   - Type hints on all function signatures.
   - Commits: conventional commits (feat:, fix:, test:, docs:, chore:, refactor:).
-  - Branches: one branch per change, created from main. Name it <type>/<change-name>,
-    where type is feat, fix, or chore and change-name is the OpenSpec change name
-    (for example feat/gmail-poller). Never commit directly to main.
+  - Branches: one branch per change, created from main. Name it issue-<number>-<short-name>
+    (for example issue-142-analyzer-timeout); a "<user>/" prefix added by Orca is accepted.
+    Never commit directly to main.
   - Dependencies: pinned in constraints.txt. Add a new dependency only with a reason.
   - Config comes from environment variables (12-factor). Fail early if a required
     value is missing.
   - The container runs as a non-root user.
+
+# Style rules added by the agent-workflow plugin (apply on top of the context above).
+context_addition: |
+  Style: write simple technical English with short sentences and no filler.
+  Keep artifacts short; every sentence must carry a decision, a requirement, or
+  a fact someone needs later. Agent reports are at most 5 lines.
 
 # Per-artifact rules
 rules:
@@ -51,9 +57,12 @@ rules:
     - Keep it short. State the problem, the change, and the impact.
     - Include a "Non-goals" section.
     - Write in simple technical English.
+    - 'Reference the GitHub issue this change addresses (e.g. "Closes #1") in the
+      Why or Impact section. Keep the proposal under one page.'
   specs:
     - Use SHALL/MUST for requirements. Every requirement needs at least one scenario.
-    - Write scenarios as WHEN / THEN. Each one must be testable by one automated test.
+    - Write scenarios as WHEN / THEN. Each one must be testable by one automated test,
+      or name the manual check that verifies it.
     - Describe behavior, not implementation.
     - Write in simple technical English.
   design:
@@ -61,20 +70,32 @@ rules:
     - Name risks and failure modes (crash mid-run, API errors, duplicate runs).
     - State what happens to existing data (migration, rollback).
     - Write in simple technical English.
+    - 'Keep design.md short: one entry per real decision (choice, reason,
+      rejected alternative, at most 5 lines). Do not restate the specs or the issue.'
+    - 'Whenever a change involves an architecture decision, create an ADR first
+      (Status, Context, Decision, Consequences). Its status must be "Accepted"
+      before the decision is implemented, and the architecture docs must be updated.'
   tasks:
     - Follow red-green-refactor. For each behavior, one task writes the failing test
       (red), the next makes it pass (green), then clean up (refactor).
     - Put the test task before the implementation task. Never the other way round.
     - Keep each task small enough to finish in about 2 hours or less.
-    - End with a task that runs the full test suite and updates the README if needed.
+    - 'Every scenario in the delta specs is covered by a task that names the
+      scenario. Write one task per behavior ("test, then code"), not separate
+      RED and GREEN tasks.'
+    - Group tasks so that each numbered group can be committed on its own.
+    - A task that needs Docker, a server, or another external tool says so, so the
+      coordinator can check it before apply starts.
+    - 'The last group is "Verification" and contains a task that runs the check
+      command (make check) plus any manual checks the specs name.'
 
 # Per-operation guidance
 operations:
   apply:
     guidance:
-      - Before the first edit, create the branch <type>/<change-name> from an up-to-date
-        main (feat for new behavior, fix for bug fixes, chore for everything else such
-        as tooling, docs, or dependencies). Reuse it if it already exists.
+      - Before the first edit, create the branch issue-<number>-<short-name> from an
+        up-to-date main (a "<user>/" prefix added by Orca is accepted). Reuse it if it
+        already exists.
       - Work test-first. Write one failing test, run it, and confirm it fails for the
         right reason before writing any implementation (red).
       - Write the smallest code that makes the test pass (green). Run the tests again.
@@ -85,9 +106,21 @@ operations:
       - Keep changes inside the scope of the current change. Note unrelated problems
         instead of fixing them.
       - Use Google-style docstrings and simple technical English in all new code.
+      - Tick a task only after the test or command that proves it has passed in this
+        session; never tick a task based on an assumption.
+      - 'Tests must be deterministic: never compare two clock reads for equality and
+        never rely on sleeps for ordering; set the time explicitly instead.'
+      - 'Commit after each completed task group with a Conventional Commits message
+        (feat:, fix:, test:, docs:, chore:).'
+      - Do the Docker or container checks named in the tasks yourself; do not leave
+        them for a later phase.
+      - Apply is finished only when the check command (make check) passes twice in a row.
   archive:
     guidance:
       - Check that all tasks are done and the test suite is green before archiving.
       - Make sure all work is committed on the change branch, ready to merge into main.
+      - Archive on the change branch, before the pull request is merged.
       - Sync delta specs into the main specs.
+      - 'If the change has a review.md, every finding with "Decision: fix" must have
+        "Status: fixed"; otherwise stop and report the open findings instead of archiving.'
       - Summarize the outcome in a few plain sentences.
