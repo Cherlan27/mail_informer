@@ -55,9 +55,19 @@ ADR, a dependency, or a migration, it moves up.
 
 The Trivial track is the only exception to "one issue, one OpenSpec change".
 
-**Local model** – only on the Small track, with propose and apply split into two
-workers. If its run leaves verification failing, or it has made no commit and
-ticked no task after 10 minutes, the apply goes to `sonnet`.
+**Local flow** – `/agent-workflow:orchestrate-issue <issue> --local` runs the
+whole flow (every phase, including the review) on the local model from the
+`local:` block of `.claude/workflow.yaml`; it is the fallback for when the cloud
+models are at their token limit. Track is picked as usual but capped at
+`local.max_track`. The local model is weaker, so: one review round only (the round
+is marked in `review.md` as a local-model review, which is not an independent
+model), short artifacts and small reads, and the coordinator applies a watchdog if
+a worker stalls. All three gates still happen; you decide each finding at Gate 2.
+If the local flow is not configured (`local.enabled` is false or there is no
+`local.model`), the cloud track must be used. A smaller, Small-track-only option
+also exists inside the normal flow: Gate 1 can send just the apply to the local
+model; if it leaves `make check` failing or has made no commit and ticked no task
+after 10 minutes, the apply goes to the cloud model.
 
 **Style** – simple technical English, short sentences, no filler. Reports are at
 most 5 lines, findings at most 6, gate summaries at most 10. The coordinator

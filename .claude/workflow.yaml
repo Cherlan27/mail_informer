@@ -21,6 +21,18 @@ models:
   fix:     { agent: claude, model: sonnet }
   ship:    { agent: claude, model: sonnet }
 
+# Local (self-hosted) flow: run via /agent-workflow:orchestrate-issue <n> --local
+# when the cloud models are at their token limit. Every phase -- including the
+# review -- runs on the local model, so keep artifacts short and do one review
+# round; the human Gate 2 is the safety net. The Ollama backend must be up.
+local:
+  enabled: true
+  agent: opencode
+  model: "ollama/qwen3.8:27b"
+  context_window: 40000          # VRAM-honest working value, not the 126k max
+  max_track: full
+  backend_check: "curl -sf http://localhost:11434/api/tags >/dev/null"
+
 tracks:
   small:
     max_tasks: 5
