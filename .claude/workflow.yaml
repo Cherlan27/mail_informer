@@ -7,7 +7,7 @@ version: 1
 check: make check
 
 # Run once in a fresh worktree before tests or dev servers.
-setup: "pip install -c constraints.txt -e .[dev]"
+setup: "pip install -c constraints.txt -e .[dev] && trail build"
 
 base_branch: main
 branch_pattern: "issue-<n>-<short-name>"   # a "<user>/" prefix added by Orca is accepted
@@ -32,6 +32,15 @@ local:
   context_window: 40000          # VRAM-honest working value, not the 126k max
   max_track: full
   backend_check: "curl -sf http://localhost:11434/api/tags >/dev/null"
+
+# Optional code map, so a cold worker finds code without reading whole files:
+# none | trail (Trail Code CLI). `setup` builds the map in .trail/cache/.
+code_map: trail
+
+# Stop rule for cloud workers: after this many minutes in one phase the
+# coordinator checks the worker and asks the human if it is stuck.
+limits:
+  phase_minutes: 30
 
 tracks:
   small:

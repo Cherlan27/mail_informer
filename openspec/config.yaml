@@ -110,6 +110,12 @@ operations:
         session; never tick a task based on an assumption.
       - 'Tests must be deterministic: never compare two clock reads for equality and
         never rely on sleeps for ordering; set the time explicitly instead.'
+      - Never delete, skip, or loosen a test, change an expected value to match
+        the code, special-case test inputs, or weaken the check command to make
+        a check pass. If a test looks wrong, stop and report it instead.
+      - If you are blocked (a tool is missing, the environment is down, a task
+        is unclear or impossible), stop and report the blocker. Do not work
+        around it.
       - 'Commit after each completed task group with a Conventional Commits message
         (feat:, fix:, test:, docs:, chore:).'
       - Do the Docker or container checks named in the tasks yourself; do not leave
