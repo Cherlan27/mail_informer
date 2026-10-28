@@ -34,7 +34,7 @@ The reviewer is never the agent that wrote the code.
 | | ⏸ **Gate 1** | A human approves the proposal. | human |
 | 2 | **Apply** | `/opsx:apply`, task by task, red → green → refactor, one commit per task group, until `make check` passes twice in a row. | `sonnet` |
 | 3 | **Review** | `/agent-workflow:review-change`: spec conformance, test evidence, project rules, correctness, security, deployment. Writes `review.md`, changes no code. | `opus` |
-| | ⏸ **Gate 2** | A human decides per finding: fix, skip, or defer. | human |
+| | ⏸ **Gate 2** | A human decides per finding: fix, skip, or defer. Judgment calls (`Recommendation: decide`) and skipped CRITICAL/MAJOR findings come without a default. | human |
 | 4 | **Fixes** | Implements findings with `Decision: fix`, sets `Status: fixed`, runs `make check` twice. A second, scoped review round follows only if a CRITICAL or MAJOR finding was fixed; at most two rounds. | `sonnet` |
 | 5 | **Archive & PR** | `/opsx:archive` on the branch, PR with `Closes #<issue>`. | `sonnet` |
 | | ⏸ **Gate 3** | A human approves the merge and the deployment (`docker compose up -d --build`). | human |
@@ -42,6 +42,22 @@ The reviewer is never the agent that wrote the code.
 **Verification** – `make check` must pass twice in a row at the end of phases 2
 and 4 (the second run catches flaky tests). CI runs the test suite on every
 pull request.
+
+**Test integrity** – `make check` also passes once before any code change
+(baseline). A pass only counts if the tests still test the behavior: deleting,
+skipping, or loosening a test, or weakening the check, fails the phase. The
+coordinator checks every result itself; a worker's report is a pointer, not proof.
+
+**Blocked means stop** – a worker that is blocked (tool missing, environment
+down, task unclear) stops and reports; it does not work around the blocker. A
+phase that runs longer than `limits.phase_minutes` is checked and, if stuck,
+handed to the human.
+
+**Code map** – `code_map: trail` is set: workers find code with the Trail Code
+CLI (`trail ask`, `trail skeleton`, `trail callers`) before reading whole files,
+and the reviewer runs `trail check` against `.trail/learnings/`. Learnings hold
+code facts only; workflow rules stay in this file, `openspec/config.yaml`, and
+`CLAUDE.md`. Changed learnings are reviewed like docs.
 
 **Tracks** – the coordinator proposes a track before phase 1 and the human
 confirms it. In doubt, take the higher track. If a change turns out to need an
