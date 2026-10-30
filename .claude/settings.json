@@ -11,5 +11,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "agent-workflow@agent-workflow": true
   }
 }
