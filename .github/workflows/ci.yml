@@ -23,4 +23,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -c constraints.txt -e ".[dev]"
-      - run: python -m pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install -g @fission-ai/openspec@1.9.0
+      - run: make check
