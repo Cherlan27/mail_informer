@@ -9,15 +9,16 @@ from mail_informer.analysis import prompts, rules
 from mail_informer.analysis.analyzer import run_analysis
 from mail_informer.analysis.model import ModelUnavailable
 from mail_informer.analysis.rules import InvalidAnswer
+from mail_informer.analysis.sender_rules import SenderRule
 from mail_informer.parsing import Mail
 
 BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
-def add(conn, gmail_id, days=0, is_bulk=False, body="Text"):
+def add(conn, gmail_id, days=0, is_bulk=False, body="Text", from_addr="a@example.org"):
     db.insert_mails(conn, [Mail(
         gmail_id=gmail_id, thread_id="t", internal_date=BASE + timedelta(days=days),
-        from_addr="a@example.org", to_addrs="b@example.org", subject=f"subject-{gmail_id}",
+        from_addr=from_addr, to_addrs="b@example.org", subject=f"subject-{gmail_id}",
         body_text=body, is_bulk=is_bulk,
     )])
 
@@ -237,3 +238,96 @@ def test_pass_limit_is_respected_and_newest_mails_come_first(conn):
 def test_successful_pass_records_the_time_even_without_work(conn):
     assert run(conn, FakeModel()) == 0
     assert db.last_analyzer_ok(conn) is not None
+
+
+# --- sender rules ------------------------------------------------------------------------
+
+ADS = SenderRule("shop-ads", None, "shop.example", "advertising", "ignore")
+JOBS = SenderRule("linkedin-jobs", "jobs@linkedin.example", None, "job", "ignore")
+
+
+def rule_results(conn):
+    return conn.execute(
+        """SELECT gmail_id, status, category, importance, summary, model, reason, attempts
+           FROM analyses ORDER BY gmail_id""").fetchall()
+
+
+def test_no_rule_file_configured(conn):
+    add(conn, "a", from_addr="news@shop.example")
+    model = FakeModel()
+    assert run(conn, model) == 1
+    assert model.kinds_for("a") == ["classify"]
+    assert conn.execute("SELECT model FROM analyses").fetchall() == [("test-model",)]
+
+
+def test_rule_result_is_stored(conn):
+    add(conn, "a", from_addr='"LinkedIn" <Jobs@linkedin.example>')
+    model = FakeModel()
+    assert run(conn, model, sender_rules=[ADS, JOBS]) == 1
+    assert rule_results(conn) == [
+        ("a", "done", "job", "ignore", "", "rule", "rule: linkedin-jobs", 1)]
+    assert model.calls == []
+
+
+def test_mails_without_a_rule_still_go_to_the_model(conn):
+    add(conn, "ruled", from_addr="x@shop.example")
+    add(conn, "other", from_addr="x@other.example")
+    model = FakeModel()
+    assert run(conn, model, sender_rules=[ADS]) == 2
+    assert model.kinds_for("ruled") == []
+    assert model.kinds_for("other") == ["classify"]
+
+
+def test_pending_result_is_replaced(conn):
+    add(conn, "a", from_addr="x@shop.example")
+    run(conn, FakeModel({"a": InvalidAnswer("bad")}))
+    assert results(conn)["a"][0] == "pending"
+    run(conn, FakeModel(), sender_rules=[ADS])
+    rows = rule_results(conn)
+    assert len(rows) == 1
+    assert rows[0][1] == "done" and rows[0][5] == "rule"
+
+
+def test_rule_mails_without_a_model_server(conn):
+    add(conn, "ruled", days=1, from_addr="x@shop.example")
+    add(conn, "other", days=2, from_addr="x@other.example")  # newer: the model is asked first
+    model = FakeModel({"other": ModelUnavailable("down")})
+    with pytest.raises(ModelUnavailable):
+        run(conn, model, sender_rules=[ADS])
+    assert [r[0] for r in rule_results(conn)] == ["ruled"]
+    assert db.last_analyzer_ok(conn) is None
+
+
+def test_rule_added_later_leaves_a_done_result_unchanged(conn):
+    add(conn, "a", from_addr="x@shop.example")
+    run(conn, FakeModel({"a": rating("important", "work")}))
+    before = rule_results(conn)
+    model = FakeModel()
+    run(conn, model, sender_rules=[ADS])
+    assert rule_results(conn) == before
+    assert model.calls == []
+
+
+def test_pass_limit_counts_rule_mails_too(conn):
+    for i in range(3):
+        add(conn, f"m{i}", days=i, from_addr="x@shop.example")
+    assert run(conn, FakeModel(), limit=2, sender_rules=[ADS]) == 2
+    assert [r[0] for r in rule_results(conn)] == ["m1", "m2"]
+
+
+def test_pass_log_shows_rule_totals_and_names_without_sender(conn, caplog):
+    add(conn, "a", from_addr="secret-sender@shop.example")
+    add(conn, "b", from_addr="other-secret@shop.example")
+    add(conn, "c", from_addr="x@other.example")
+    with caplog.at_level("INFO", logger="mail_informer.analysis.analyzer"):
+        run(conn, FakeModel(), sender_rules=[ADS])
+    line = next(r.getMessage() for r in caplog.records if "analyzed" in r.getMessage())
+    assert line == "3 mails analyzed, 2 by rules (shop-ads: 2)"
+    assert "shop.example" not in caplog.text and "secret-sender" not in caplog.text
+
+
+def test_pass_log_without_rule_hits(conn, caplog):
+    add(conn, "a")
+    with caplog.at_level("INFO", logger="mail_informer.analysis.analyzer"):
+        run(conn, FakeModel())
+    assert "1 mails analyzed, 0 by rules (none)" in caplog.text

@@ -80,3 +80,29 @@ def test_analyze_applies_migrations_itself(env, monkeypatch):
     use_model(monkeypatch, StubModel())
     assert cli.main(["analyze"]) == 0
     assert env.execute("SELECT count(*) FROM analyses").fetchone()[0] == 0
+
+
+# --- sender rules at start ---------------------------------------------------------------
+
+def test_analyze_refuses_a_broken_rule_file_before_reading_mail(env, monkeypatch, tmp_path):
+    f = tmp_path / "rules.toml"
+    f.write_text('[[rule]]\nname = "too-strong"\ndomain = "example.org"\n'
+                 'category = "work"\nimportance = "urgent"\n', encoding="utf-8")
+    monkeypatch.setenv("SENDER_RULES_PATH", str(f))
+    env.execute("DROP TABLE IF EXISTS notifications, notifier_state, analyses, analyzer_state, messages, sync_state, schema_migrations")
+    use_model(monkeypatch, StubModel())
+    assert cli.main(["analyze"]) == 1
+    # The database was not opened: not even the migrations ran.
+    assert env.execute("SELECT to_regclass('analyses')").fetchone()[0] is None
+
+
+def test_analyze_uses_the_rule_file(env, monkeypatch, tmp_path):
+    f = tmp_path / "rules.toml"
+    f.write_text('[[rule]]\nname = "example-org"\ndomain = "example.org"\n'
+                 'category = "newsletter"\nimportance = "ignore"\n', encoding="utf-8")
+    monkeypatch.setenv("SENDER_RULES_PATH", str(f))
+    # An error from the model would fail the pass: the rule hit must not reach it.
+    use_model(monkeypatch, StubModel(ModelUnavailable("down")))
+    assert cli.main(["analyze"]) == 0
+    assert env.execute("SELECT model, reason, category FROM analyses").fetchall() == [
+        ("rule", "rule: example-org", "newsletter")]

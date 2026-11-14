@@ -1,0 +1,24 @@
+# Copy to config/sender_rules.toml and edit. Set SENDER_RULES_PATH=/config/sender_rules.toml in .env.
+# The file holds no secrets.
+#
+# A rule rates mails from one sender without the model. Fields:
+#   name       unique, used in the log and in the stored reason ("rule: <name>")
+#   sender     an exact address, OR
+#   domain     an exact domain (subdomains do not match; add a rule for each)
+#   category   security, personal, work, authority, appointment, invoice, delivery, job,
+#              newsletter, advertising, other
+#   importance "ignore" or "normal" only. "important" and "urgent" are refused.
+# An address rule wins over a domain rule. Prefer address rules for big senders: a domain
+# can also send invoices or security mails.
+
+[[rule]]
+name = "linkedin-jobs"
+sender = "jobs-listings@linkedin.com"
+category = "job"
+importance = "ignore"
+
+[[rule]]
+name = "shop-newsletter"
+domain = "newsletter.shop.example"
+category = "advertising"
+importance = "ignore"

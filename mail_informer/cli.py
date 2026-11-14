@@ -7,6 +7,7 @@ from .analysis.analyzer import MAX_ATTEMPTS, run_analysis
 from .analysis.evaluate import evaluate, format_report, load_labels
 from .analysis.model import ModelUnavailable, OpenAICompatibleClient
 from .analysis.prompts import PROMPT_VERSION
+from .analysis.sender_rules import SenderRule, load_rules
 from .accounts import Account, load_accounts
 from .auth import authorize
 from .config import load_config
@@ -98,13 +99,28 @@ def _open_model(cfg, name: str) -> OpenAICompatibleClient:
         api_key=cfg.model_api_key, reasoning_effort=cfg.model_reasoning_effort)
 
 
+def _load_sender_rules(cfg) -> list[SenderRule]:
+    """Loads the sender rules. No setting means no rules.
+
+    Raises:
+        RuntimeError: If the rule file is broken. Called before the database is opened.
+    """
+    if not cfg.sender_rules_path:
+        return []
+    try:
+        return load_rules(cfg.sender_rules_path)
+    except ValueError as e:
+        raise RuntimeError(f"SENDER_RULES_PATH is refused: {e}") from e
+
+
 def _analyze(cfg) -> int:
     """Runs one analyzer pass. Returns 1 if the model server is unavailable."""
+    sender_rules = _load_sender_rules(cfg)
     model = _open_model(cfg, cfg.analyzer_model)
     with db.connect(cfg.database_url) as conn:
         db.migrate(conn)
         try:
-            run_analysis(conn, model, cfg.analyzer_model)
+            run_analysis(conn, model, cfg.analyzer_model, sender_rules=sender_rules)
         except ModelUnavailable as e:
             log.error("Model server unavailable: %s", e)
             return 1
@@ -151,10 +167,11 @@ def _evaluate(cfg, labels_path: str, model_name: str | None) -> int:
     name = model_name or cfg.analyzer_model
     if not name:
         raise RuntimeError("Give --model or set ANALYZER_MODEL")
+    sender_rules = _load_sender_rules(cfg)
     model = _open_model(cfg, name)
     labels = load_labels(labels_path)
     with db.connect(cfg.database_url) as conn:
-        print(format_report(evaluate(conn, model, labels), name))
+        print(format_report(evaluate(conn, model, labels, sender_rules), name))
     return 0
 
 

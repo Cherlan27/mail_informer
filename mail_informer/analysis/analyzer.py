@@ -1,6 +1,7 @@
 """One analyzer pass: rate unanalyzed mails with the model and store the results."""
 
 import logging
+from collections import Counter
 
 import psycopg
 
@@ -8,12 +9,14 @@ from .. import db
 from . import prompts, rules
 from .model import ModelClient
 from .rules import InvalidAnswer
+from .sender_rules import SenderRule, match
 
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
 PASS_LIMIT = 50
 SUMMARY_LEVELS = ("important", "urgent")
+RULE_MODEL = "rule"
 
 
 def classify(model: ModelClient, mail: db.PendingMail) -> rules.Classification:
@@ -61,6 +64,7 @@ def run_analysis(
     model_name: str,
     max_attempts: int = MAX_ATTEMPTS,
     limit: int = PASS_LIMIT,
+    sender_rules: list[SenderRule] | None = None,
 ) -> int:
     """Runs one analyzer pass.
 
@@ -72,7 +76,9 @@ def run_analysis(
         model: The model to ask.
         model_name: Name stored with each result.
         max_attempts: How many invalid answers a mail may get before it is marked failed.
-        limit: Maximum number of mails in this pass.
+        limit: Maximum number of mails in this pass, rule hits included.
+        sender_rules: Checked sender rules. A mail that matches one is rated by the rule
+            and never sent to the model. Rule hits are stored before the model is asked.
 
     Returns:
         The number of mails that got a finished result. 0 if another pass is active.
@@ -86,7 +92,20 @@ def run_analysis(
         return 0
     try:
         done = 0
+        by_rule: Counter[str] = Counter()
+        for_model = []
         for mail in db.pick_unanalyzed(conn, prompts.PROMPT_VERSION, max_attempts, limit):
+            rule = match(sender_rules, mail.from_addr) if sender_rules else None
+            if rule is None:
+                for_model.append(mail)
+                continue
+            db.save_result(
+                conn, mail.gmail_id, prompts.PROMPT_VERSION, RULE_MODEL,
+                rule.category, rule.importance, "", f"rule: {rule.name}",
+            )
+            by_rule[rule.name] += 1
+            done += 1
+        for mail in for_model:
             try:
                 classification, importance, summary = _analyze(model, mail)
             except InvalidAnswer as e:
@@ -100,7 +119,9 @@ def run_analysis(
             )
             done += 1
         db.touch_analyzer_ok(conn)
-        log.info("%d mails analyzed", done)
+        # Rule names only: sender addresses stay out of the log.
+        per_rule = ", ".join(f"{name}: {n}" for name, n in sorted(by_rule.items())) or "none"
+        log.info("%d mails analyzed, %d by rules (%s)", done, by_rule.total(), per_rule)
         return done
     finally:
         db.analyzer_unlock(conn)
