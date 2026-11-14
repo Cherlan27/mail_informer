@@ -21,6 +21,7 @@ class Config:
     allow_remote_model: bool
     analyzer_model: str
     ha_webhook_url: str
+    sender_rules_path: str
 
 
 def load_config(
@@ -80,4 +81,5 @@ def load_config(
         allow_remote_model=allow_remote_model,
         analyzer_model=analyzer_model,
         ha_webhook_url=ha_webhook_url,
+        sender_rules_path=os.environ.get("SENDER_RULES_PATH", ""),
     )

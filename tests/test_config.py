@@ -199,3 +199,15 @@ def test_address_that_is_not_http_fails(monkeypatch):
     monkeypatch.setenv("MODEL_URL", "ftp://127.0.0.1/v1")
     with pytest.raises(RuntimeError, match="http"):
         load_config(require_model_server=True)
+
+
+def test_sender_rules_path_is_empty_by_default(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.delenv("SENDER_RULES_PATH", raising=False)
+    assert load_config().sender_rules_path == ""
+
+
+def test_sender_rules_path_is_read_from_the_environment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    monkeypatch.setenv("SENDER_RULES_PATH", "/config/sender_rules.toml")
+    assert load_config().sender_rules_path == "/config/sender_rules.toml"

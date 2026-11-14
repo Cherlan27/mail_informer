@@ -16,6 +16,7 @@ from . import rules
 from .analyzer import classify
 from .model import ModelClient
 from .rules import InvalidAnswer
+from .sender_rules import SenderRule, match
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,10 @@ class Report:
     false_urgent: list[str] = field(default_factory=list)
     wrong_importance: list[tuple[str, str, str]] = field(default_factory=list)  # id, expected, answered
     confusion: Counter = field(default_factory=Counter)  # (expected, predicted) -> count
+    # The rule part. rule_hits is None if no rules were given.
+    rule_hits: int | None = None
+    rule_correct: int = 0  # category and importance both match the label
+    rule_hits_important: list[str] = field(default_factory=list)  # labeled important or urgent
 
 
 def load_labels(path: str | Path) -> list[Label]:
@@ -71,7 +76,10 @@ def load_labels(path: str | Path) -> list[Label]:
     return labels
 
 
-def evaluate(conn: psycopg.Connection, model: ModelClient, labels: list[Label]) -> Report:
+def evaluate(
+    conn: psycopg.Connection, model: ModelClient, labels: list[Label],
+    sender_rules: list[SenderRule] | None = None,
+) -> Report:
     """Runs the model on labeled mails and compares the answers with the labels.
 
     Missed and false urgent mails are counted from the raw model answer. The bulk
@@ -82,6 +90,9 @@ def evaluate(conn: psycopg.Connection, model: ModelClient, labels: list[Label]) 
         conn: Database connection. Only read.
         model: The model to test.
         labels: The hand-made labels.
+        sender_rules: Checked sender rules. If given, the report counts the labeled mails
+            that the rules would catch. The model still rates every label, so the model
+            numbers do not depend on the rules.
 
     Returns:
         The report.
@@ -94,10 +105,16 @@ def evaluate(conn: psycopg.Connection, model: ModelClient, labels: list[Label]) 
     unknown = [lb.gmail_id for lb in labels if lb.gmail_id not in mails]
     if unknown:
         raise ValueError(f"labels name mails that are not in the archive: {', '.join(unknown)}")
-    report = Report()
+    report = Report(rule_hits=0 if sender_rules else None)
     for label in labels:
         mail = mails[label.gmail_id]
         report.total += 1
+        rule = match(sender_rules, mail.from_addr) if sender_rules else None
+        if rule is not None:
+            report.rule_hits += 1
+            report.rule_correct += (rule.category, rule.importance) == (label.category, label.importance)
+            if label.importance in ("important", "urgent"):
+                report.rule_hits_important.append(label.gmail_id)
         try:
             answer = classify(model, mail)
         except InvalidAnswer:
@@ -139,4 +156,12 @@ def format_report(report: Report, model_name: str) -> str:
         lines.append("wrong importance (mail: expected -> answered):")
         for gmail_id, expected, answered in report.wrong_importance:
             lines.append(f"  {gmail_id}: {expected} -> {answered}")
+    if report.rule_hits is not None:
+        lines += [
+            f"rules would catch: {report.rule_hits}/{report.total}",
+            f"rule hits with the right category and importance: "
+            f"{report.rule_correct}/{report.rule_hits}",
+            f"rule hits labeled important or urgent: {len(report.rule_hits_important)} "
+            f"{report.rule_hits_important}",
+        ]
     return "\n".join(lines)

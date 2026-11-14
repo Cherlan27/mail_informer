@@ -43,7 +43,18 @@ To use another server (vLLM, llama.cpp, a cloud service), set `MODEL_URL`, `ANAL
 - A server on this machine or at a private IP address (`192.168.x.x`, `10.x.x.x`, ...) needs nothing more. Give a LAN server by its IP: a host name like `nas.fritz.box` counts as remote.
 - Any other address is **remote**. With a remote server, the sender, subject and first part of every mail body go to that service. It only starts if you set `ALLOW_REMOTE_MODEL=true` and `MODEL_URL` starts with `https://`. Redirects of the model server are never followed, so the key cannot be passed on to another host. Run `evaluate` with the model first.
 
-### 2c. Home Assistant (once)
+### 2c. Sender rules (optional)
+
+Rules rate mails from known bulk senders (newsletters, job alerts, ads) without a model call. Their content is not sent to the model server. Copy `sender_rules.toml.example` to `config/sender_rules.toml`, edit it, and set `SENDER_RULES_PATH=/config/sender_rules.toml` in `.env`. Without the setting there are no rules.
+
+- One `[[rule]]` per sender with a unique `name`, exactly one of `sender` (an address) or `domain`, a `category` from the known list, and `importance` `ignore` or `normal`. `important` and `urgent` are refused, so a rule never causes a notification.
+- A `domain` rule matches that exact domain only. `example.com` does not match `news@mail.example.com`; add a rule for the subdomain. An address rule wins over a domain rule. Only the address in `From` is used, not subject or body.
+- A broken rule file stops `analyze` and `evaluate` at start; the error names the rule.
+- Rules apply only to mails that wait for a result. Mails that already have a result are not rated again when the rules change.
+- A rule result has `model = 'rule'` and the reason `rule: <name>`. The analyzer log shows how many mails each rule decided. `evaluate` shows how many labeled mails the rules would catch and lists those labeled `important` or `urgent`; check that list before you trust a new rule.
+- Rollback: unset `SENDER_RULES_PATH`. To have rule results rated by the model again: `DELETE FROM analyses WHERE model = 'rule'`.
+
+### 2d. Home Assistant (once)
 
 1. Create an automation with a webhook trigger and a long random id (Home Assistant 2024.10+, adjust the phone name):
 

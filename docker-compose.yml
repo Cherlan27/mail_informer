@@ -53,10 +53,15 @@ services:
       ALLOW_REMOTE_MODEL: ${ALLOW_REMOTE_MODEL:-false}
       # Old setting. Passed on only so that the analyzer can refuse to start with it.
       OLLAMA_URL: ${OLLAMA_URL:-}
+      # Empty: no sender rules. Set to /config/sender_rules.toml to use the rule file.
+      SENDER_RULES_PATH: ${SENDER_RULES_PATH:-}
     # The default model server (Ollama) runs on the host. This also makes the name work on Linux.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # No secrets volume: the analyzer has no Gmail token and cannot reach the mailbox.
+    # The rule file lives in ./config, read-only. It holds no secrets.
+    volumes:
+      - ./config:/config:ro
     healthcheck:
       test: ["CMD", "python", "-m", "mail_informer", "analyzer-health"]
       interval: 5m
