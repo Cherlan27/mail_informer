@@ -21,7 +21,11 @@ Commit messages follow Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`,
 
 - The main checkout stays on `main`. Work happens in a per-issue worktree branched from `origin/main`.
 - A fresh worktree needs `pip install -c constraints.txt -e .[dev]` before tests or dev servers run.
-- Postgres (127.0.0.1:5432) is a shared port: only one worktree may run the local database at a time.
+- Port 127.0.0.1:5432 belongs to the live stack (`mail_informer-postgres-1`). Never run tests against it.
+- `make check` needs `TEST_DATABASE_URL`; it fails without it, so Postgres tests never get skipped silently.
+  In a worktree, start a throwaway database on port 55432 with a test-only password, and remove it after the issue:
+  `docker run -d --name mi-test-issue<n> -e POSTGRES_USER=mail_informer -e POSTGRES_PASSWORD=<pw> -e POSTGRES_DB=mail_informer -p 127.0.0.1:55432:5432 postgres:16`
+  then `TEST_DATABASE_URL=postgresql://mail_informer:<pw>@127.0.0.1:55432/mail_informer`. Only one worktree may bind 55432 at a time.
 
 ## Lifecycle of a change
 
