@@ -21,7 +21,7 @@ The change matches the proposal, design and all 21 scenarios; each scenario has 
 `sender` and `domain` values are only checked for `@`. A value copied from a `From` header (`sender = "LinkedIn <jobs@linkedin.com>"`) or a wildcard-style domain (`domain = ".example.com"`) is accepted but can never match. When the owner writes such a rule, `analyze` starts fine, the rule silently catches nothing, and those mails keep going to the model. Proof: `parse_rules` accepted both values and `match` returned `None` for `jobs@x.com` and `a@sub.example.com` (python probe). Fail-safe (today's behavior), so no data or safety impact. Fix: refuse a `sender` unless `parseaddr(value)[1] == value`, and a `domain` with a leading/trailing `.` or whitespace.
 
 - Recommendation: defer — fail-safe, and `evaluate` shows low hit counts; cheap to add with a test later.
-- Decision: pending
+- Decision: defer (human approved recommendation at Gate 2; follow-up #24, also covers N1)
 - Status: open
 
 ### Nits
