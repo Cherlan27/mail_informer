@@ -59,8 +59,9 @@ deploy:
   health_check: "docker compose ps"
   needs_docker_locally: true     # tests need Postgres via docker; Orca checks `docker info` before apply
 
-# Only one worktree may bind the local Postgres at a time.
-shared_ports: [5432]
+# 5432 is the live stack. Worktree tests use a throwaway Postgres on 55432
+# (see CONTRIBUTING.md); only one worktree may bind it at a time.
+shared_ports: [55432]
 
 # docs/adr is created with the first ADR.
 docs:
