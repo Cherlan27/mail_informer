@@ -12,7 +12,7 @@ The system SHALL read sender rules only from the file named by the setting `SEND
 - **THEN** every waiting mail is rated by the model and no result has the model `rule`
 
 ### Requirement: Rule file is checked at start
-Each rule SHALL have a unique name, exactly one of a sender address or a sender domain, a category from the known category list, and the importance `ignore` or `normal`. The system SHALL refuse a rule file that breaks any of these checks, has an unknown key, is not valid TOML, cannot be read, or names the same address or domain in two rules. `analyze` and `evaluate` SHALL run this check before any mail is read, and SHALL exit with an error that names the broken rule.
+Each rule SHALL have a unique name, exactly one of a sender address or a sender domain, a category from the known category list, and the importance `ignore` or `normal`. The system SHALL refuse a rule file that breaks any of these checks, has an unknown key, is not valid TOML, cannot be read, names the same address or domain in two rules, gives a sender that is not a plain address, or gives a domain with a leading or trailing dot or whitespace. `analyze` and `evaluate` SHALL run this check before any mail is read, and SHALL exit with an error that names the broken rule.
 
 #### Scenario: Rule raises importance
 - **WHEN** a rule sets the importance `important` or `urgent`
@@ -41,6 +41,18 @@ Each rule SHALL have a unique name, exactly one of a sender address or a sender 
 #### Scenario: Evaluation with a broken rule file
 - **WHEN** `evaluate` runs with a broken rule file
 - **THEN** it refuses to start and no model call is made
+
+#### Scenario: Sender is not a plain address
+- **WHEN** a rule gives a sender such as `LinkedIn <jobs@linkedin.com>`, with a display name or other text around the address
+- **THEN** the analyzer refuses to start and the error names the rule
+
+#### Scenario: Domain with a dot or whitespace at an end
+- **WHEN** a rule gives a domain such as `.example.com`, `example.com.`, or ` example.com`
+- **THEN** the analyzer refuses to start and the error names the rule
+
+#### Scenario: Rule name with surrounding whitespace
+- **WHEN** a rule named ` shop-ads ` breaks a check
+- **THEN** the error shows the name without the surrounding whitespace
 
 ### Requirement: Rule matching
 A rule SHALL match a mail by the address in its `From` header, without the display name, compared without regard to case. An address rule SHALL match only that exact address. A domain rule SHALL match only addresses whose domain is exactly that domain; subdomains SHALL NOT match. If both an address rule and a domain rule match, the address rule SHALL win. A mail without a readable sender address SHALL match no rule. Subject and body SHALL NOT be used.
