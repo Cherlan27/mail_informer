@@ -37,7 +37,7 @@ def _parse_rule(item: object, number: int) -> SenderRule:
     if not isinstance(item, dict):
         raise ValueError(f"rule {number}: is not a table")
     name = item.get("name")
-    label = f"rule {name!r}" if isinstance(name, str) and name.strip() else f"rule {number}"
+    label = f"rule {name.strip()!r}" if isinstance(name, str) and name.strip() else f"rule {number}"
     for key in item:
         if key not in _RULE_KEYS:
             raise ValueError(f"{label}: unknown key {key!r}")
@@ -53,11 +53,18 @@ def _parse_rule(item: object, number: int) -> SenderRule:
             f"{label}: importance {importance!r} is not allowed "
             f"(use one of {', '.join(RULE_IMPORTANCE)})")
     if "sender" in item:
-        sender = _text(item, "sender", label).lower()
+        sender = _text(item, "sender", label)
+        # Compare the raw value: a display name or stray space would never match a mail.
+        if parseaddr(item["sender"])[1] != item["sender"]:
+            raise ValueError(f"{label}: 'sender' must be a plain address, without a name or spaces")
+        sender = sender.lower()
         if sender.count("@") != 1 or sender.startswith("@") or sender.endswith("@"):
             raise ValueError(f"{label}: 'sender' is not an address")
         return SenderRule(name, sender, None, category, importance)
     domain = _text(item, "domain", label).lower()
+    raw = item["domain"]
+    if raw != raw.strip() or raw.startswith(".") or raw.endswith("."):
+        raise ValueError(f"{label}: 'domain' must not start or end with a dot or a space")
     if "@" in domain:
         raise ValueError(f"{label}: 'domain' must not contain '@'")
     return SenderRule(name, None, domain, category, importance)

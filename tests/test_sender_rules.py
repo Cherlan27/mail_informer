@@ -105,6 +105,34 @@ def test_domain_with_at_sign_is_refused():
         parse(rule(domain="a@example.com"))
 
 
+@pytest.mark.parametrize("sender", [
+    "LinkedIn <jobs@linkedin.com>",
+    "<jobs@linkedin.com>",
+    " jobs@linkedin.com",
+    "jobs@linkedin.com ",
+    "jobs@linkedin.com, news@linkedin.com",
+])
+def test_sender_that_is_not_a_plain_address_is_refused(sender):
+    with pytest.raises(ValueError, match="r1.*'sender'"):
+        parse(rule(sender=sender, domain=None))
+
+
+def test_plain_address_is_still_accepted():
+    assert parse(rule(sender="Jobs@LinkedIn.com", domain=None))[0].sender == "jobs@linkedin.com"
+
+
+@pytest.mark.parametrize("domain", [".example.com", "example.com.", " example.com", "example.com	"])
+def test_domain_with_dot_or_whitespace_at_an_end_is_refused(domain):
+    with pytest.raises(ValueError, match="r1.*'domain'"):
+        parse(rule(domain=domain))
+
+
+def test_error_label_uses_the_trimmed_name():
+    with pytest.raises(ValueError) as e:
+        parse(rule(name=" shop-ads ", domain=".example.com"))
+    assert str(e.value).startswith("rule 'shop-ads':")
+
+
 # --- 1.2 load_rules --------------------------------------------------------------------
 
 def test_load_rules_reads_a_file(tmp_path):
