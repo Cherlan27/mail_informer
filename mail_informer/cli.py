@@ -7,7 +7,7 @@ from .analysis.analyzer import MAX_ATTEMPTS, run_analysis
 from .analysis.evaluate import evaluate, format_report, load_labels
 from .analysis.model import ModelUnavailable, OpenAICompatibleClient
 from .analysis.prompts import PROMPT_VERSION
-from .analysis.sender_rules import SenderRule, load_rules
+from .analysis.sender_rules import RuleFileError, SenderRule, load_rules
 from .accounts import Account, load_accounts
 from .auth import authorize
 from .config import load_config
@@ -103,13 +103,13 @@ def _load_sender_rules(cfg) -> list[SenderRule]:
     """Loads the sender rules. No setting means no rules.
 
     Raises:
-        RuntimeError: If the rule file is broken. Called before the database is opened.
+        RuntimeError: If the rule file is broken (a ``RuleFileError``). Called before the database is opened.
     """
     if not cfg.sender_rules_path:
         return []
     try:
         return load_rules(cfg.sender_rules_path)
-    except ValueError as e:
+    except RuleFileError as e:
         raise RuntimeError(f"SENDER_RULES_PATH is refused: {e}") from e
 
 

@@ -1,0 +1,26 @@
+# Workflow log: refuse-unmatchable-sender-rules (issue #24)
+
+- 2026-11-18T20:39Z code_map: trail
+- 2026-11-18T20:39Z precondition: Docker was down; human started it. Test DB mi-test-issue24 on 55432. Baseline make check passed (441 tests).
+- 2026-11-18T20:39Z track: Small (proposed by coordinator; human did not object).
+- 2026-11-18T20:39Z phase 1 propose+apply start @27d028c; worker claude/sonnet (dispatch ctx_9e7f305d8703).
+- 2026-11-18T20:43Z phase 1 propose+apply end; claude/sonnet; succeeded (c9e6f20). Coordinator verified: make check 452 passed, validate ok, no open tasks, clean tree, no test loosened. design.md skipped by Small track (status ready).
+- 2026-11-18T20:43Z phase 3 review start @c9e6f20; worker claude/opus.
+- 2026-11-18T20:46Z phase 3 review end; claude/opus; succeeded (c3ab957). Round 1: 0 findings, 1 nit (N1, no decision). Only review.md changed.
+- 2026-11-18T20:46Z Gate 2 skipped (Small track: no CRITICAL/MAJOR, no decide). No fixes needed; nit N1 not applied (no Decision line).
+- 2026-11-18T20:46Z phase 5 fix+archive+PR start @c3ab957; worker claude/sonnet.
+- 2026-11-18T21:00Z phase 5 archive+PR end; claude/sonnet; succeeded. PR #27 open, CI green; coordinator re-ran make check (452 passed).
+- 2026-11-20T20:50Z Gate 3: human did not approve the merge. Human said _parse_rule is hard to read and asked for best-practice points; coordinator listed 10, human chose points 1-8 now (domain/sender host check, whitespace policy, casefold names, per-field helpers, key set difference, kind/value + Literal types, RuleFileError).
+- 2026-11-20T20:56Z track change: Small -> Full (8 tasks > max_tasks 5, behaviour and spec change, SenderRule constructor change touches 3 test files). Change re-opened from archive.
+- 2026-11-20T20:56Z phase 1 propose (re-open) start @1b6b7a9; worker claude/opus (dispatch ctx_6896f77ca189).
+- 2026-11-20T20:58Z phase 1 propose (re-open) end; claude/opus; succeeded (9501aeb). Coordinator verified: 4 artifacts done, validate ok, main spec equals origin/main, clean tree. Waiting at Gate 1.
+- 2026-11-20T21:13Z Gate 1: human approved ("apply"), normal model.
+- 2026-11-20T21:13Z phase 2 blocked before start: Docker Desktop not running (test DB mi-test-issue24 unreachable); asked human to start it.
+- 2026-11-20T21:15Z Docker back; mi-test-issue24 restarted. phase 2 apply start @af46c65; worker claude/sonnet.
+- 2026-11-20T21:21Z phase 2 apply end; claude/sonnet; succeeded (37cd87a). Coordinator verified: make check 487 passed, no open tasks, test diff only SenderRule(...) calls, import and .sender->.value (needed by 4.4). Worker noted: duplicate-target error no longer quotes the address.
+- 2026-11-20T21:21Z phase 3 review round 2 start @37cd87a; worker claude/opus.
+- 2026-11-20T21:57Z phase 3 review round 2 end; claude/opus; succeeded (36b472c). 0 critical, 0 major, 1 minor (R1), nits N2-N4. Only review.md changed.
+- 2026-11-20T21:57Z Gate 2: human approved R1 fix and chose to include nits N2-N4 as fix ("ja machen wir so").
+- 2026-11-20T21:57Z phase 4 fixes start @bbd440f; worker claude/sonnet.
+- 2026-11-20T22:02Z phase 4 fixes end; claude/sonnet; succeeded (929a498). Coordinator verified: make check twice (489 passed), R1 N2-N4 Status fixed, tests only added or made stricter, no production code. No scoped review round (no CRITICAL/MAJOR fixed).
+- 2026-11-20T22:02Z phase 5 archive+PR update start; worker claude/sonnet.

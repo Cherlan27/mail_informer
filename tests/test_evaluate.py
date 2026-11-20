@@ -194,7 +194,7 @@ def test_invalid_answers_are_listed_as_wrong_importance(conn):
 
 # --- sender rules ------------------------------------------------------------------------
 
-ADS = SenderRule("shop-ads", None, "shop.example", "advertising", "ignore")
+ADS = SenderRule("shop-ads", "domain", "shop.example", "advertising", "ignore")
 ANSWERS = {"a": ("work", "urgent"), "b": ("advertising", "ignore"), "c": ("job", "normal")}
 
 
