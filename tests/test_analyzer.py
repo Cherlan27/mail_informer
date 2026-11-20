@@ -242,8 +242,8 @@ def test_successful_pass_records_the_time_even_without_work(conn):
 
 # --- sender rules ------------------------------------------------------------------------
 
-ADS = SenderRule("shop-ads", None, "shop.example", "advertising", "ignore")
-JOBS = SenderRule("linkedin-jobs", "jobs@linkedin.example", None, "job", "ignore")
+ADS = SenderRule("shop-ads", "domain", "shop.example", "advertising", "ignore")
+JOBS = SenderRule("linkedin-jobs", "sender", "jobs@linkedin.example", "job", "ignore")
 
 
 def rule_results(conn):

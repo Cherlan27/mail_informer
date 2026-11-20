@@ -1,6 +1,7 @@
 import pytest
 
-from mail_informer.analysis.sender_rules import SenderRule, load_rules, match, parse_rules
+from mail_informer.analysis.sender_rules import (
+    RuleFileError, SenderRule, load_rules, match, parse_rules)
 
 
 def rule(**kw):
@@ -19,8 +20,8 @@ def test_valid_file_gives_rules():
     rules = parse(rule(), rule(name="r2", sender="Jobs@Example.org", domain=None, category="job",
                                importance="normal"))
     assert rules == [
-        SenderRule("r1", None, "example.com", "newsletter", "ignore"),
-        SenderRule("r2", "jobs@example.org", None, "job", "normal"),
+        SenderRule("r1", "domain", "example.com", "newsletter", "ignore"),
+        SenderRule("r2", "sender", "jobs@example.org", "job", "normal"),
     ]
 
 
@@ -118,7 +119,7 @@ def test_sender_that_is_not_a_plain_address_is_refused(sender):
 
 
 def test_plain_address_is_still_accepted():
-    assert parse(rule(sender="Jobs@LinkedIn.com", domain=None))[0].sender == "jobs@linkedin.com"
+    assert parse(rule(sender="Jobs@LinkedIn.com", domain=None))[0].value == "jobs@linkedin.com"
 
 
 @pytest.mark.parametrize("domain", [".example.com", "example.com.", " example.com", "example.com	"])
@@ -139,7 +140,7 @@ def test_load_rules_reads_a_file(tmp_path):
     f = tmp_path / "rules.toml"
     f.write_text('[[rule]]\nname = "ads"\ndomain = "shop.example"\n'
                  'category = "advertising"\nimportance = "ignore"\n', encoding="utf-8")
-    assert load_rules(f) == [SenderRule("ads", None, "shop.example", "advertising", "ignore")]
+    assert load_rules(f) == [SenderRule("ads", "domain", "shop.example", "advertising", "ignore")]
 
 
 def test_file_missing(tmp_path):
@@ -156,8 +157,8 @@ def test_invalid_toml(tmp_path):
 
 # --- 1.3 match -------------------------------------------------------------------------
 
-ADDRESS = SenderRule("jobs", "jobs@example.com", None, "job", "ignore")
-DOMAIN = SenderRule("example", None, "example.com", "newsletter", "ignore")
+ADDRESS = SenderRule("jobs", "sender", "jobs@example.com", "job", "ignore")
+DOMAIN = SenderRule("example", "domain", "example.com", "newsletter", "ignore")
 
 
 def test_exact_address():
@@ -183,3 +184,80 @@ def test_address_rule_wins():
 @pytest.mark.parametrize("from_addr", [None, "", "no address here"])
 def test_no_sender_address(from_addr):
     assert match([DOMAIN, ADDRESS], from_addr) is None
+
+
+# --- 3 stricter values ------------------------------------------------------------------
+
+@pytest.mark.parametrize("domain", [
+    ".example.com", "example.com.", "exa mple.com", "example..com", "-example.com",
+    "example-.com", "example", "http://example.com", "example.com/x", "a_b.example.com",
+    "a" * 64 + ".com",
+])
+def test_domain_that_is_not_a_host_name_is_refused(domain):
+    with pytest.raises(ValueError, match="r1.*'domain'"):
+        parse(rule(domain=domain))
+
+
+def test_valid_domain_is_stored_in_lower_case():
+    assert parse(rule(domain="Mail.Example-Shop.co.uk"))[0].value == "mail.example-shop.co.uk"
+
+
+def test_domain_label_of_63_characters_is_accepted():
+    assert parse(rule(domain="a" * 63 + ".com"))[0].value == "a" * 63 + ".com"
+
+
+@pytest.mark.parametrize("sender", [
+    "a b@x.com", "a@.com", "a@x..com", "a@x", "@x.com", "a@b@x.com", "a@-x.com",
+])
+def test_sender_with_an_invalid_address_part_is_refused(sender):
+    with pytest.raises(ValueError, match="r1.*'sender'"):
+        parse(rule(sender=sender, domain=None))
+
+
+@pytest.mark.parametrize("field, value", [
+    ("sender", " a@example.com"),
+    ("sender", "a@example.com\t"),
+    ("domain", " example.com"),
+    ("domain", "example.com "),
+    ("category", "newsletter "),
+    ("category", " newsletter"),
+    ("importance", "ignore "),
+    ("importance", " ignore"),
+])
+def test_value_with_surrounding_whitespace_is_refused(field, value):
+    kw = {field: value}
+    if field == "sender":
+        kw["domain"] = None
+    with pytest.raises(ValueError, match=f"r1.*'{field}'"):
+        parse(rule(**kw))
+
+
+def test_names_that_differ_only_in_case_are_duplicates():
+    with pytest.raises(ValueError, match="ads"):
+        parse(rule(name="Ads"), rule(name="ads", domain="other.com"))
+
+
+def test_stored_name_keeps_its_case():
+    assert parse(rule(name=" Shop-Ads "))[0].name == "Shop-Ads"
+
+
+# --- 4 error type and unknown keys -------------------------------------------------------
+
+def test_rule_errors_are_rule_file_errors():
+    with pytest.raises(RuleFileError):
+        parse(rule(category="spam"))
+
+
+def test_load_errors_are_rule_file_errors(tmp_path):
+    with pytest.raises(RuleFileError):
+        load_rules(tmp_path / "missing.toml")
+    f = tmp_path / "rules.toml"
+    f.write_text("[[rule\nname =", encoding="utf-8")
+    with pytest.raises(RuleFileError):
+        load_rules(f)
+
+
+def test_several_unknown_keys_are_named_in_sorted_order():
+    with pytest.raises(RuleFileError) as e:
+        parse(rule(zeta=1, alpha=2))
+    assert "['alpha', 'zeta']" in str(e.value)
