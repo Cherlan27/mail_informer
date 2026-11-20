@@ -15,3 +15,9 @@
 - 2026-11-20T20:56Z phase 1 propose (re-open) start @1b6b7a9; worker claude/opus (dispatch ctx_6896f77ca189).
 - 2026-11-20T20:58Z phase 1 propose (re-open) end; claude/opus; succeeded (9501aeb). Coordinator verified: 4 artifacts done, validate ok, main spec equals origin/main, clean tree. Waiting at Gate 1.
 - 2026-11-20T21:13Z Gate 1: human approved ("apply"), normal model.
+- 2026-11-20T21:13Z phase 2 blocked before start: Docker Desktop not running (test DB mi-test-issue24 unreachable); asked human to start it.
+- 2026-11-20T21:15Z Docker back; mi-test-issue24 restarted. phase 2 apply start @af46c65; worker claude/sonnet.
+- 2026-11-20T21:21Z phase 2 apply end; claude/sonnet; succeeded (37cd87a). Coordinator verified: make check 487 passed, no open tasks, test diff only SenderRule(...) calls, import and .sender->.value (needed by 4.4). Worker noted: duplicate-target error no longer quotes the address.
+- 2026-11-20T21:21Z phase 3 review round 2 start @37cd87a; worker claude/opus.
+- 2026-11-20T21:57Z phase 3 review round 2 end; claude/opus; succeeded (36b472c). 0 critical, 0 major, 1 minor (R1), nits N2-N4. Only review.md changed.
+- 2026-11-20T21:57Z Gate 2: human approved R1 fix and chose to include nits N2-N4 as fix ("ja machen wir so").

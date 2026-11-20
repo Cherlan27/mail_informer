@@ -50,10 +50,16 @@ Scenario → test (mutation that makes it fail): "Rule names that differ only in
 The `parseaddr` check has no test that fails without it. Removing the line (probe M11) leaves all 75 rule tests green: every current non-plain case is also refused by the local-part or host check. It is still the only check that refuses a value with a comment, for example `jobs(news)@linkedin.com` or `(x)jobs@linkedin.com` (probe: refused only by the "plain address" message; `parseaddr` reads `jobs@linkedin.com`). When someone drops the line as redundant, such a rule is accepted and never matches, and no test notices. Fix: add `"jobs(news)@linkedin.com"` to the parametrize list of `test_sender_that_is_not_a_plain_address_is_refused`.
 
 - Recommendation: fix — one test value, pins a design decision ("the `parseaddr` check stays").
-- Decision: pending
+- Decision: fix (human approved the recommendation at Gate 2)
 - Status: open
 
 ### Nits
 - N2 · `tests/test_sender_rules.py` `test_names_that_differ_only_in_case_are_duplicates` — only the order `Ads`, `ads` is tested; with `casefold()` dropped from the lookup only (probe M1) it stays green. A second case `ads`, `Ads` closes that.
+  - Decision: fix (human chose to include it at Gate 2)
+  - Status: open
 - N3 · `tests/test_sender_rules.py` `test_several_unknown_keys_are_named_in_sorted_order` — with two keys, the test passes without `sorted` on about half of the hash seeds (2 of 6). Four or five unknown keys make it fail almost always.
+  - Decision: fix (human chose to include it at Gate 2)
+  - Status: open
 - N4 · `README.md:50` — "a unique `name`" does not say that names are compared without regard to case, and that values other than `name` must not have surrounding spaces.
+  - Decision: fix (human chose to include it at Gate 2)
+  - Status: open
