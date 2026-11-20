@@ -9,3 +9,9 @@
 - 2026-11-18T20:46Z phase 3 review end; claude/opus; succeeded (c3ab957). Round 1: 0 findings, 1 nit (N1, no decision). Only review.md changed.
 - 2026-11-18T20:46Z Gate 2 skipped (Small track: no CRITICAL/MAJOR, no decide). No fixes needed; nit N1 not applied (no Decision line).
 - 2026-11-18T20:46Z phase 5 fix+archive+PR start @c3ab957; worker claude/sonnet.
+- 2026-11-18T21:00Z phase 5 archive+PR end; claude/sonnet; succeeded. PR #27 open, CI green; coordinator re-ran make check (452 passed).
+- 2026-11-20T20:50Z Gate 3: human did not approve the merge. Human said _parse_rule is hard to read and asked for best-practice points; coordinator listed 10, human chose points 1-8 now (domain/sender host check, whitespace policy, casefold names, per-field helpers, key set difference, kind/value + Literal types, RuleFileError).
+- 2026-11-20T20:56Z track change: Small -> Full (8 tasks > max_tasks 5, behaviour and spec change, SenderRule constructor change touches 3 test files). Change re-opened from archive.
+- 2026-11-20T20:56Z phase 1 propose (re-open) start @1b6b7a9; worker claude/opus (dispatch ctx_6896f77ca189).
+- 2026-11-20T20:58Z phase 1 propose (re-open) end; claude/opus; succeeded (9501aeb). Coordinator verified: 4 artifacts done, validate ok, main spec equals origin/main, clean tree. Waiting at Gate 1.
+- 2026-11-20T21:13Z Gate 1: human approved ("apply"), normal model.
