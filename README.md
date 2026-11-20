@@ -47,7 +47,7 @@ To use another server (vLLM, llama.cpp, a cloud service), set `MODEL_URL`, `ANAL
 
 Rules rate mails from known bulk senders (newsletters, job alerts, ads) without a model call. Their content is not sent to the model server. Copy `sender_rules.toml.example` to `config/sender_rules.toml`, edit it, and set `SENDER_RULES_PATH=/config/sender_rules.toml` in `.env`. Without the setting there are no rules.
 
-- One `[[rule]]` per sender with a unique `name`, exactly one of `sender` (an address) or `domain`, a `category` from the known list, and `importance` `ignore` or `normal`. `important` and `urgent` are refused, so a rule never causes a notification.
+- One `[[rule]]` per sender with a unique `name` (names are compared without regard to case), exactly one of `sender` (an address) or `domain`, a `category` from the known list, and `importance` `ignore` or `normal`. `important` and `urgent` are refused, so a rule never causes a notification. Values other than `name` must not have spaces at the start or end.
 - A `domain` rule matches that exact domain only. `example.com` does not match `news@mail.example.com`; add a rule for the subdomain. An address rule wins over a domain rule. Only the address in `From` is used, not subject or body.
 - A broken rule file stops `analyze` and `evaluate` at start; the error names the rule.
 - Rules apply only to mails that wait for a result. Mails that already have a result are not rated again when the rules change.

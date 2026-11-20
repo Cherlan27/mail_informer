@@ -51,15 +51,15 @@ The `parseaddr` check has no test that fails without it. Removing the line (prob
 
 - Recommendation: fix — one test value, pins a design decision ("the `parseaddr` check stays").
 - Decision: fix (human approved the recommendation at Gate 2)
-- Status: open
+- Status: fixed
 
 ### Nits
 - N2 · `tests/test_sender_rules.py` `test_names_that_differ_only_in_case_are_duplicates` — only the order `Ads`, `ads` is tested; with `casefold()` dropped from the lookup only (probe M1) it stays green. A second case `ads`, `Ads` closes that.
   - Decision: fix (human chose to include it at Gate 2)
-  - Status: open
+  - Status: fixed
 - N3 · `tests/test_sender_rules.py` `test_several_unknown_keys_are_named_in_sorted_order` — with two keys, the test passes without `sorted` on about half of the hash seeds (2 of 6). Four or five unknown keys make it fail almost always.
   - Decision: fix (human chose to include it at Gate 2)
-  - Status: open
+  - Status: fixed
 - N4 · `README.md:50` — "a unique `name`" does not say that names are compared without regard to case, and that values other than `name` must not have surrounding spaces.
   - Decision: fix (human chose to include it at Gate 2)
-  - Status: open
+  - Status: fixed

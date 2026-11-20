@@ -112,6 +112,7 @@ def test_domain_with_at_sign_is_refused():
     " jobs@linkedin.com",
     "jobs@linkedin.com ",
     "jobs@linkedin.com, news@linkedin.com",
+    "jobs(news)@linkedin.com",
 ])
 def test_sender_that_is_not_a_plain_address_is_refused(sender):
     with pytest.raises(ValueError, match="r1.*'sender'"):
@@ -232,9 +233,10 @@ def test_value_with_surrounding_whitespace_is_refused(field, value):
         parse(rule(**kw))
 
 
-def test_names_that_differ_only_in_case_are_duplicates():
-    with pytest.raises(ValueError, match="ads"):
-        parse(rule(name="Ads"), rule(name="ads", domain="other.com"))
+@pytest.mark.parametrize("first, second", [("Ads", "ads"), ("ads", "Ads")])
+def test_names_that_differ_only_in_case_are_duplicates(first, second):
+    with pytest.raises(ValueError, match=f"'{second}'.*used twice"):
+        parse(rule(name=first), rule(name=second, domain="other.com"))
 
 
 def test_stored_name_keeps_its_case():
@@ -259,5 +261,5 @@ def test_load_errors_are_rule_file_errors(tmp_path):
 
 def test_several_unknown_keys_are_named_in_sorted_order():
     with pytest.raises(RuleFileError) as e:
-        parse(rule(zeta=1, alpha=2))
-    assert "['alpha', 'zeta']" in str(e.value)
+        parse(rule(zeta=1, mu=2, alpha=3, kappa=4, beta=5))
+    assert "['alpha', 'beta', 'kappa', 'mu', 'zeta']" in str(e.value)
