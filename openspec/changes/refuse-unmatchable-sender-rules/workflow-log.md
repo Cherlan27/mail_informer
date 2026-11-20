@@ -21,3 +21,6 @@
 - 2026-11-20T21:21Z phase 3 review round 2 start @37cd87a; worker claude/opus.
 - 2026-11-20T21:57Z phase 3 review round 2 end; claude/opus; succeeded (36b472c). 0 critical, 0 major, 1 minor (R1), nits N2-N4. Only review.md changed.
 - 2026-11-20T21:57Z Gate 2: human approved R1 fix and chose to include nits N2-N4 as fix ("ja machen wir so").
+- 2026-11-20T21:57Z phase 4 fixes start @bbd440f; worker claude/sonnet.
+- 2026-11-20T22:02Z phase 4 fixes end; claude/sonnet; succeeded (929a498). Coordinator verified: make check twice (489 passed), R1 N2-N4 Status fixed, tests only added or made stricter, no production code. No scoped review round (no CRITICAL/MAJOR fixed).
+- 2026-11-20T22:02Z phase 5 archive+PR update start; worker claude/sonnet.
